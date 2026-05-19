@@ -2,119 +2,134 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>안전운임 조회(평택항)</title>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --accent: #ef4444; --green: #10b981; }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); padding: 10px; font-size: 14px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); padding: 6px; font-size: 14px; margin: 0; }
+        /* 컨테이너 너비를 살짝 넓혀 시원한 레이아웃 확보 */
+        .container { max-width: 560px; margin: 0 auto; background: white; padding: 12px; border-radius: 10px; box-shadow: 0 3px 6px rgba(0,0,0,0.05); box-sizing: border-box; }
         
-        /* 검색창 스타일 (텍스트 입력 방식) */
-        .search-box { margin-bottom: 10px; }
-        .search-input { width: 100%; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; box-sizing: border-box; outline: none; }
-        .search-input:focus { border-color: #1d4ed8; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        h3 { text-align: center; color: var(--primary); margin: 2px 0 10px 0; font-size: 1.25rem; letter-spacing: -0.03em; }
 
-        /* 할증 섹션 */
-        .sc-section { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
-        .sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .sc-item { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; background: white; padding: 6px; border-radius: 4px; border: 1px solid #eee; cursor: pointer; }
+        /* 검색창 시인성 개선 */
+        .search-box { margin-bottom: 8px; }
+        .search-input { width: 100%; padding: 10px 12px; border: 2px solid var(--primary); border-radius: 7px; font-size: 0.95rem; box-sizing: border-box; outline: none; }
+
+        /* 할증 섹션 3열 유지하되 크기 최적화 */
+        .sc-section { background: #fffbeb; border: 1px solid #fef3c7; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
+        .sc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .sc-item { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 500; background: white; padding: 6px 4px; border-radius: 4px; border: 1px solid #eee; cursor: pointer; white-space: nowrap; }
+        .sc-item input { transform: scale(1.05); }
         
-        .weight-input-box { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #fcd34d; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
-        .weight-input-box input { width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
-        .h-input { width: 50px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 0.8rem; }
+        /* 입력 단락 폰트 및 인풋 조절 */
+        .flex-inputs { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #fcd34d; font-size: 0.85rem; }
+        .flex-inputs > div { display: flex; align-items: center; gap: 5px; }
+        .h-input, .w-input { width: 50px; padding: 3px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 0.85rem; font-weight: bold; }
 
-        /* 결과 카드 */
-        .result-card { padding: 15px; border-radius: 10px; background: #f1f5f9; display: none; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        /* 결과 카드 메인 스타일 */
+        .result-card { padding: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; display: none; }
+        #resAddr { font-weight: bold; font-size: 1.05rem; color: #1e293b; margin-bottom: 8px; border-bottom: 2px solid #cbd5e1; padding-bottom: 4px; text-align: center; }
 
-        .fare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin: 10px 0; }
-        .fare-box { background: white; padding: 8px 2px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; }
-        .fare-label { font-size: 0.7rem; color: #64748b; margin-bottom: 3px; }
-        .fare-val { font-size: 0.85rem; font-weight: bold; color: var(--accent); }
+        /* 운임 결과 영역 가독성 강화 */
+        .fare-section { margin-bottom: 8px; background: white; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .ft-badge { display: inline-block; padding: 3px 8px; font-weight: bold; font-size: 0.78rem; border-radius: 4px; margin-bottom: 5px; }
+        .ft-badge.b40 { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .ft-badge.g20 { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+        .fare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+        .fare-box { background: #f8fafc; padding: 6px 2px; border-radius: 6px; text-align: center; border: 1px solid #f1f5f9; }
+        .fare-box.highlight { background: #eff6ff; border: 1px solid #dbeafe; }
+        .fare-label { font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 2px; }
+        .fare-val { font-size: 0.9rem; font-weight: 700; color: #334155; }
+        .fare-box.highlight .fare-val { color: var(--primary); font-weight: 800; font-size: 0.95rem; }
         
-        /* 💰 견적 섹션 */
-        .quote-section { margin-top: 15px; padding: 15px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; }
-        .quote-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .quote-input { width: 60px; padding: 5px; border: 2px solid #059669; border-radius: 4px; text-align: center; font-weight: bold; }
+        /* 💰 화주 견적 섹션 폰트 키우기 */
+        .quote-section { margin-top: 8px; padding: 10px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .quote-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #bbf7d0; padding-bottom: 5px; }
+        .quote-input { width: 50px; padding: 4px; border: 2px solid #16a34a; border-radius: 5px; text-align: center; font-weight: bold; font-size: 0.9rem; color: #16a34a; outline: none; }
         
-        /* 📋 복사 버튼 스타일 */
-        .copy-btn { width: 100%; margin-top: 12px; padding: 12px; background: #059669; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; transition: 0.2s; }
-        .copy-btn:active { transform: scale(0.98); background: #047857; }
+        .quote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .quote-card { background: white; padding: 10px 4px; border-radius: 8px; text-align: center; border: 1px solid #bbf7d0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .quote-card-title { font-size: 0.78rem; color: #64748b; font-weight: 600; margin-bottom: 4px; }
+        /* 최종 견적가 폰트 대폭 강조 */
+        .quote-card-price { font-weight: 800; color: var(--primary); font-size: 1.3rem; margin-bottom: 4px; letter-spacing: -0.01em; }
+        .margin-badge { display: inline-block; background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; }
 
-        .info-box { background: #e0f2fe; padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #0369a1; margin-top: 10px; border: 1px solid #bae6fd; }
+        /* 복사 버튼 크기 복원 */
+        .copy-btn { width: 100%; margin-top: 8px; padding: 10px; background: #16a34a; color: white; border: none; border-radius: 7px; font-weight: bold; font-size: 0.95rem; cursor: pointer; transition: background 0.15s; }
+        .copy-btn:hover { background: #15803d; }
+
+        .info-box { background: #e0f2fe; padding: 8px; border-radius: 6px; font-size: 0.78rem; color: #0369a1; margin-top: 8px; border: 1px solid #bae6fd; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h3 style="text-align:center; color:var(--primary); margin-top:0;">🚢 평택항 안전운임 조회</h3>
+    <h3>🚢 평택항 안전운임 조회</h3>
     
     <div class="search-box">
         <input type="text" id="searchInput" class="search-input" placeholder="행선지 입력 시 즉시 조회 (예: 포승, 선단동)" oninput="autoSearch(this.value)">
     </div>
 
     <div class="sc-section">
-        <div style="font-weight:bold; font-size:0.85rem; margin-bottom:8px; color:#b45309;">⚙️ 할증 설정</div>
         <div class="sc-grid">
             <label class="sc-item"><input type="checkbox" class="sc-check" data-name="심야" value="0.2"> 심야(20%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="공휴일" value="0.2"> 공휴일(20%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="위험물" value="0.3"> 위험/유독물(30%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="화약류" value="1.0"> 화약류(100%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="방사성" value="2.0"> 방사성물질(200%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="공휴일" value="0.2"> 공휴(20%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="위험물" value="0.3"> 위험물(30%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="화약류" value="1.0"> 화약(100%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="방사성" value="2.0"> 방사성(200%)</label>
             <label class="sc-item"><input type="checkbox" class="sc-check" data-name="탱크" value="0.3"> 탱크(30%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="플렉시(액체)" value="0.2"> 플렉시백 액체(20%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="플렉시(분말)" value="0.1"> 플렉시백 분말(10%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="냉동" value="0.3"> 냉동장치 가동(30%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="플렉시(액체)" value="0.2"> 플렉시(액체)(20%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="플렉시(분말)" value="0.1"> 플렉시(분말)(10%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="냉동" value="0.3"> 냉동가동(30%)</label>
             <label class="sc-item"><input type="checkbox" class="sc-check" data-name="덤프" value="0.25"> 덤프(25%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="통행제한" value="0.3"> 통행제한지역(30%)</label>
-            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="험로" value="0.2"> 험로 및 오지(20%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="통행제한" value="0.3"> 통행제한(30%)</label>
+            <label class="sc-item"><input type="checkbox" class="sc-check" data-name="험로" value="0.2"> 험로오지(20%)</label>
         </div>
         
-        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #fcd34d; font-size: 0.85rem; display: flex; align-items: center; gap: 5px;">
-            <span>📐 활대품 허가 초과 길이: </span>
-            <input type="number" id="overLength" class="h-input" value="0" oninput="updateFare()"> <span>cm 초과 (10cm당 10% 할증)</span>
-        </div>
-
-        <div class="weight-input-box">
-            <span>⚖️ 내품 무게: </span>
-            <input type="number" id="weightVal" value="0" oninput="updateFare()"> <span> 톤 (t)</span>
+        <div class="flex-inputs">
+            <div>📐 활대품 초과: <input type="number" id="overLength" class="h-input" value="0" oninput="updateFare()"> cm</div>
+            <div>⚖️ 내품 무게: <input type="number" id="weightVal" class="w-input" value="0" oninput="updateFare()"> 톤</div>
         </div>
     </div>
 
     <div id="resultBox" class="result-card">
-        <div id="resAddr" style="font-weight:bold; font-size:1.1rem; color:#1e293b; margin-bottom:10px; border-bottom:1px solid #cbd5e1; padding-bottom:5px;"></div>
+        <div id="resAddr"></div>
         
-        <div>
-            <div style="font-weight:bold; font-size:0.85rem;">🟦 40FT</div>
+        <div class="fare-section">
+            <span class="ft-badge b40">🟦 40FT 고시 운임</span>
             <div class="fare-grid">
-                <div class="fare-box"><div class="fare-label">안전위탁(하불)</div><div id="p40t" class="fare-val"></div></div>
-                <div class="fare-box" style="background:#eff6ff;"><div class="fare-label">운수사간</div><div id="p40b" class="fare-val" style="color:#2563eb;"></div></div>
-                <div class="fare-box"><div class="fare-label">안전운송(청구)</div><div id="p40s" class="fare-val"></div></div>
+                <div class="fare-box"><div class="fare-label">안전위탁(하불)</div><div id="p40t" class="fare-val">-</div></div>
+                <div class="fare-box highlight"><div class="fare-label">운수사간 </div><div id="p40b" class="fare-val">-</div></div>
+                <div class="fare-box"><div class="fare-label">안전운송(청구)</div><div id="p40s" class="fare-val">-</div></div>
             </div>
+        </div>
             
-            <div style="font-weight:bold; font-size:0.85rem; margin-top:10px;">🟩 20FT</div>
+        <div class="fare-section">
+            <span class="ft-badge g20">🟩 20FT 고시 운임</span>
             <div class="fare-grid">
-                <div class="fare-box"><div class="fare-label">안전위탁(하불)</div><div id="p20t" class="fare-val"></div></div>
-                <div class="fare-box" style="background:#eff6ff;"><div class="fare-label">운수사간</div><div id="p20b" class="fare-val" style="color:#2563eb;"></div></div>
-                <div class="fare-box"><div class="fare-label">안전운송(청구)</div><div id="p20s" class="fare-val"></div></div>
+                <div class="fare-box"><div class="fare-label">안전위탁(하불)</div><div id="p20t" class="fare-val">-</div></div>
+                <div class="fare-box highlight"><div class="fare-label">운수사간 </div><div id="p20b" class="fare-val">-</div></div>
+                <div class="fare-box"><div class="fare-label">안전운송(청구)</div><div id="p20s" class="fare-val">-</div></div>
             </div>
         </div>
 
         <div class="quote-section">
             <div class="quote-row">
-                <span style="font-weight:bold; color:#065f46;">📊 화주 견적 (쉐어요율 설정)</span>
-                <div><input type="number" id="marginDiscount" class="quote-input" value="0" oninput="updateFare()"> %</div>
+                <span style="font-weight:bold; color:#164e63; font-size:0.88rem;">📊 화주 제출용 견적 설정</span>
+                <div style="font-size:0.85rem; color:#475569;">조정: <input type="number" id="marginDiscount" class="quote-input" value="0" oninput="updateFare()"> %</div>
             </div>
-            <div style="margin-top:10px; display: grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <div style="background:white; padding:10px; border-radius:8px; text-align:center; border:1px solid #d1fae5;">
-                    <div style="font-size:0.7rem; color:#666;">40FT 견적가</div>
-                    <div id="q40" style="font-weight:bold; color:var(--green); font-size:1.1rem;">-</div>
-                    <div id="m40" style="font-size:0.75rem; color:#059669; font-weight:bold; margin-top:3px;"></div>
+            <div class="quote-grid">
+                <div class="quote-card">
+                    <div class="quote-card-title">40FT 견적액</div>
+                    <div id="q40" class="quote-card-price">-</div>
+                    <div id="m40" class="margin-badge"></div>
                 </div>
-                <div style="background:white; padding:10px; border-radius:8px; text-align:center; border:1px solid #d1fae5;">
-                    <div style="font-size:0.7rem; color:#666;">20FT 견적가</div>
-                    <div id="q20" style="font-weight:bold; color:var(--green); font-size:1.1rem;">-</div>
-                    <div id="m20" style="font-size:0.75rem; color:#059669; font-weight:bold; margin-top:3px;"></div>
+                <div class="quote-card">
+                    <div class="quote-card-title">20FT 견적액</div>
+                    <div id="q20" class="quote-card-price">-</div>
+                    <div id="m20" class="margin-badge"></div>
                 </div>
             </div>
             <button class="copy-btn" id="copyBtn" onclick="copyQuote()">📋 견적 내용 복사하기</button>
@@ -125,9 +140,8 @@
 
 <script>
 let currentItem = null;
-let lastResult = { q40: 0, q20: 0, r40: 0, r20: 0 }; // 복사용 데이터 저장 객체
+let lastResult = { q40: 0, q20: 0, r40: 0, r20: 0 };
 
-// 데이터셋
 const rawData = [ {s:"서울특별시", g:"종로구", e:"청운효자동", d:83, p40t:418300, p40b:441500, p40s:465400, p20t:371500, p20b:392000, p20s:413100 },
  {s:"서울특별시", g:"종로구", e:"사직동", d:80, p40t:410700, p40b:433400, p40s:456800, p20t:364800, p20b:384900, p20s:405600 },
  {s:"서울특별시", g:"종로구", e:"삼청동", d:91, p40t:438600, p40b:463100, p40s:488300, p20t:389000, p20b:410600, p20s:432800 },
@@ -3633,26 +3647,18 @@ function updateFare() {
     const overLen = parseFloat(document.getElementById('overLength').value) || 0;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
 
-    // 가. 중량물 할증 계산 (40FT 23톤 초과, 20FT 20톤 초과 시 1톤당 10% 할증)
     const p40WeightRate = weight > 23 ? (Math.floor(weight - 23) + 1) * 0.1 : 0;
     const p20WeightRate = weight > 20 ? (Math.floor(weight - 20) + 1) * 0.1 : 0;
-
-    // 나. 활대품 할증 계산 (Math.ceil을 사용하여 1~10cm는 10%, 11~20cm는 20%로 정확히 올림 처리)
     const oversizeRate = overLen > 0 ? Math.ceil(overLen / 10) * 0.1 : 0;
 
     function getFinalRate(wRate) {
         let sc = [];
-        
-        // 체크박스 선택된 할증들 수집
         document.querySelectorAll('.sc-check:checked').forEach(el => {
             sc.push({ name: el.dataset.name, rate: parseFloat(el.value) });
         });
-        
-        // 입력값에 의한 동적 할증 추가
         if(wRate > 0) sc.push({ name: "중량", rate: wRate });
-        if(oversizeRate > 0) sc.push({ name: "활대품", rate: oversizeRate });
+        if(oversizeRate > 0) sc.push({ name: "활대", rate: oversizeRate });
         
-        // 할증률 높은 순 정렬 후 상위 3개 추출 (국토부 지침 연동)
         sc.sort((a, b) => b.rate - a.rate);
         const top3 = sc.slice(0, 3);
         
@@ -3684,26 +3690,23 @@ function updateFare() {
     const q40 = Math.round(f40t + (f40s - f40t) * (1 - discount));
     const q20 = Math.round(f20t + (f20s - f20t) * (1 - discount));
     
-    // 복사용 데이터 업데이트
     lastResult.q40 = q40;
     lastResult.q20 = q20;
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
 
     document.getElementById('q40').innerText = fmt(q40);
-    document.getElementById('m40').innerText = `(수익: ${fmt(q40 - f40t)})`;
+    document.getElementById('m40').innerText = `수익: +${fmt(q40 - f40t)}`;
     document.getElementById('q20').innerText = fmt(q20);
-    document.getElementById('m20').innerText = `(수익: ${fmt(q20 - f20t)})`;
+    document.getElementById('m20').innerText = `수익: +${fmt(q20 - f20t)}`;
 
     const detail = (res) => res.items.map(i => `${i.name}(${(i.rate*100).toFixed(0)}%)`).join(', ') || '없음';
-    document.getElementById('calcDetail').innerHTML = `<b>할증 합계:</b> 40FT(${lastResult.r40}%), 20FT(${lastResult.r20}%)<br><b>적용 내역:</b> ${detail(res40)}`;
+    document.getElementById('calcDetail').innerHTML = `<b>할증 합계:</b> 40FT(${lastResult.r40}%), 20FT(${lastResult.r20}%) | <b>내역:</b> ${detail(res40)}`;
 }
 
-// 📋 복사 기능 함수
 function copyQuote() {
     if (!currentItem) return;
     const text = `[운임 견적 안내]\n목적지: ${currentItem.s} ${currentItem.e}\n거리: ${currentItem.d}km\n\n■ 40FT 운임: ${lastResult.q40.toLocaleString()}원\n■ 20FT 운임: ${lastResult.q20.toLocaleString()}원\n\n(할증 40FT:${lastResult.r40}% / 20FT:${lastResult.r20}% 포함/왕복기준/부가세 별도)`;
-    
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById('copyBtn');
         btn.innerText = "✅ 복사 완료!";
