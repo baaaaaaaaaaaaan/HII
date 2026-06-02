@@ -162,7 +162,7 @@
         
         <div class="fare-section">
             <div class="section-header-flex">
-                <span class="ft-badge ft-40">🟦 40FT 운임 정보</span>
+                <span class="ft-badge ft-40">🟦 40FT 고시운임 정보</span>
                 <button type="button" id="btnRoundFare" class="round-toggle-btn" onclick="toggleRound('fare')">고시운임 사사오입 OFF</button>
             </div>
             <div class="fare-grid">
@@ -173,7 +173,7 @@
         </div>
             
         <div class="fare-section">
-            <span class="ft-badge ft-20">🟩 20FT 운임 정보</span>
+            <span class="ft-badge ft-20">🟩 20FT 고시운임 정보</span>
             <div class="fare-grid">
                 <div class="fare-box"><div class="fare-label">안전위탁(하불)</div><div id="p20t" class="fare-val">-</div></div>
                 <div class="fare-box highlight"><div class="fare-label">운수사간 거래</div><div id="p20b" class="fare-val">-</div></div>
@@ -184,21 +184,21 @@
         <div class="quote-section">
             <div class="quote-row" style="border:none; padding-bottom:0; margin-bottom:4px;">
                 <span>📊 화주 제출용 견적 설정</span>
-                <button type="button" id="btnRoundQuote" class="round-toggle-btn" onclick="toggleRound('quote')">견적가 사사오입 ON</button>
+                <button type="button" id="btnRoundQuote" class="round-toggle-btn" onclick="toggleRound('quote')">견적가 사사오입 OFF</button>
             </div>
             <div class="quote-row">
                 <div style="font-size:0.8rem; color:#14532d;">쉐어율: <input type="number" id="marginDiscount" class="quote-input" value="0" oninput="calculateFare()"> %</div>
             </div>
             <div class="quote-grid">
                 <div class="quote-card">
-                    <div class="quote-card-title">40FT 최종청구액</div>
-                    <div id="q40" class="quote-card-price">-</div>
-                    <div id="m40" class="margin-badge"></div>
-                </div>
-                <div class="quote-card">
                     <div class="quote-card-title">20FT 최종청구액</div>
                     <div id="q20" class="quote-card-price">-</div>
                     <div id="m20" class="margin-badge"></div>
+                </div>
+                <div class="quote-card">
+                    <div class="quote-card-title">40FT 최종청구액</div>
+                    <div id="q40" class="quote-card-price">-</div>
+                    <div id="m40" class="margin-badge"></div>
                 </div>
             </div>
             <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()">📋 견적 내용 복사</button>
@@ -212,20 +212,20 @@
             <thead>
                 <tr>
                     <th style="width:22%;">구분</th>
-                    <th style="width:39%;">40FT 상세내역</th>
                     <th style="width:39%;">20FT 상세내역</th>
+                    <th style="width:39%;">40FT 상세내역</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td class="row-title">할증 합계</td>
-                    <td id="tableR40" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
                     <td id="tableR20" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
+                    <td id="tableR40" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
                 </tr>
                 <tr>
                     <td class="row-title">세부 항목</td>
-                    <td id="tableDetail40" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top; border-right:1px solid #ddd6fe;">선택된 할증 없음</td>
-                    <td id="tableDetail20" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top;">선택된 할증 없음</td>
+                    <td id="tableDetail20" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top; border-right:1px solid #ddd6fe;">선택된 할증 없음</td>
+                    <td id="tableDetail40" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top;">선택된 할증 없음</td>
                 </tr>
             </tbody>
         </table>
@@ -31737,7 +31737,7 @@ let currentItem = null;
 let lastResult = { q40: 0, q20: 0, r40: 0, r20: 0, amt40: 0, amt20: 0, listForCopy40: '', listForCopy20: '', hasSurcharge: false, isMultiSurcharge: false };
 
 let isRoundFare = false;
-let isRoundQuote = true; 
+let isRoundQuote = false; // 기본설정 OFF
 let isRoundDetail = false;
 
 function toggleDropdown() {
@@ -31861,17 +31861,20 @@ function calculateFare() {
     document.getElementById('p20b').innerText = fmt(f20b);
     document.getElementById('p20s').innerText = fmt(f20s);
 
-    // 2. 화주 제출용 기본 견적가 산출 (조정률 적용, 할증 미포함)
-    const baseQuote40 = Math.round(currentItem.p40t + (currentItem.p40s - currentItem.p40t) * (1 - discount));
-    const baseQuote20 = Math.round(currentItem.p20t + (currentItem.p20s - currentItem.p20t) * (1 - discount));
+    // 2. 화주 제출용 기본 견적가 산출 (마진 기준은 무조건 쉐어하기 전 원본 마진 금액 기준)
+    const rawMarginStandard40 = currentItem.p40s - currentItem.p40t;
+    const rawMarginStandard20 = currentItem.p20s - currentItem.p20t;
+    
+    const baseQuote40 = currentItem.p40s - (rawMarginStandard40 * discount);
+    const baseQuote20 = currentItem.p20s - (rawMarginStandard20 * discount);
 
-    // 3. 변경 핵심: 화주 제출용 견적가 가격을 기준(Base)으로 할증 계산 연동
+    // 3. 화주 제출용 견적가 가격을 기준(Base)으로 할증 계산 연동
     let calcAmt40 = 0;
     let uiDetails40 = [];
     let copyDetails40 = [];
     res40.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(baseQuote40 * applyRate); // 기존 고시가(base40) -> 견적가(baseQuote40) 기준으로 변경
+        let itemAmt = Math.round(baseQuote40 * applyRate);
         if (isRoundDetail) itemAmt = round1000(itemAmt);
         calcAmt40 += itemAmt;
         
@@ -31879,7 +31882,7 @@ function calculateFare() {
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         
         uiDetails40.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 적용)`);
-        copyDetails40.push(`   - ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 고시요율 / 실청구 ${applyPct} 반영)`);
+        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
 
     let calcAmt20 = 0;
@@ -31887,7 +31890,7 @@ function calculateFare() {
     let copyDetails20 = [];
     res20.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(baseQuote20 * applyRate); // 기존 고시가(base20) -> 견적가(baseQuote20) 기준으로 변경
+        let itemAmt = Math.round(baseQuote20 * applyRate);
         if (isRoundDetail) itemAmt = round1000(itemAmt);
         calcAmt20 += itemAmt;
         
@@ -31895,7 +31898,7 @@ function calculateFare() {
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         
         uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 적용)`);
-        copyDetails20.push(`   - ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 고시요율 / 실청구 ${applyPct} 반영)`);
+        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
 
     if (res40.items.length === 0) {
@@ -31914,6 +31917,9 @@ function calculateFare() {
     if (isRoundQuote) {
         q40 = round1000(q40);
         q20 = round1000(q20);
+    } else {
+        q40 = Math.round(q40);
+        q20 = Math.round(q20);
     }
     
     lastResult.q40 = q40;
@@ -31935,39 +31941,42 @@ function calculateFare() {
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
 
+    // 5. 수익(마진) 금액 산출 - 견적가 사사오입 설정 여부(isRoundQuote)와 연동하여 동적 처리
+    let rawMargin40 = isRoundQuote ? round1000(q40 - f40t) : Math.round(q40 - f40t);
+    let rawMargin20 = isRoundQuote ? round1000(q20 - f20t) : Math.round(q20 - f20t);
+
     document.getElementById('q40').innerText = fmt(q40);
-    document.getElementById('m40').innerText = `수익: +${fmt(q40 - f40t)}`;
+    document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)}`;
     document.getElementById('q20').innerText = fmt(q20);
-    document.getElementById('m20').innerText = `수익: +${fmt(q20 - f20t)}`;
+    document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)}`;
 }
 
 function copyQuoteText() {
     if (!currentItem) return;
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
-    const isOneWay = currentType.startsWith('ow') ? '편도기준' : '왕복기준';
+    const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
     
-    let text = `[운임 견적 안내]
-━━━━━━━━━━━━━━━━━━━━
+    let text = `[ 운임 견적 안내 ]
+──────────────────────
 ■ 목적지: ${fullAddr}
 
-■ 40FT 운임: ${lastResult.q40.toLocaleString()}원
-■ 20FT 운임: ${lastResult.q20.toLocaleString()}원
-━━━━━━━━━━━━━━━━━━━━`;
+■ 20FT 운임: ${lastResult.q20.toLocaleString()} 원`;
 
-    if (lastResult.hasSurcharge) {
-        text += `\n\n[적용 할증 상세금액]
-▶ 40FT 총 할증: +${lastResult.amt40.toLocaleString()}원 (${lastResult.r40}%)
-${lastResult.listForCopy40}
-
-▶ 20FT 총 할증: +${lastResult.amt20.toLocaleString()}원 (${lastResult.r20}%)
-${lastResult.listForCopy20}`;
+    if (lastResult.hasSurcharge && lastResult.amt20 > 0) {
+        text += `\n▶ 할증(${lastResult.r20}%): ${lastResult.amt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
     }
 
-    text += `\n\n(${surchargeLabel} / ${isOneWay} / 부가세 별도)`;
+    text += `\n\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
+
+    if (lastResult.hasSurcharge && lastResult.amt40 > 0) {
+        text += `\n▶ 할증(${lastResult.r40}%): ${lastResult.amt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
+    }
+
+    text += `\n──────────────────────\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} 기준)`;
 
     if (lastResult.isMultiSurcharge) {
-        text += `\n\n※ 안내사항\n• 다수 할증 시 최고 요율 항목(100%)과 나머지(50%)를 합산하되 상위 3개 항목까지만 적용됩니다.`;
+        text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
     
     navigator.clipboard.writeText(text).then(() => {
