@@ -6,7 +6,7 @@
     <title>경평물류 안전운임 조회</title>
     <style>
         :root { 
-            --primary: #2563eb;        
+            --primary: #2563eb;
             --primary-dark: #1d4ed8;   
             --bg: #f1f5f9;             
             --text: #1e293b;           
@@ -17,93 +17,190 @@
             --bg-bs: #bbf7d0;   
             --bg-bb: #bfdbfe;   
             --bg-icn: #fef08a;  
-            --bg-icns: #fde68a; 
+            --bg-icns: #fde68a;
             --bg-icnt: #fed7aa; 
             --bg-gy: #e9d5ff;   
             --bg-uw: #fbcfe8;   
             --bg-ow: #e2e8f0;   
         }
         
-        body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: var(--bg); color: var(--text); padding: 8px; font-size: 12px; margin: 0; line-height: 1.5; }
-        .container { max-width: 530px; margin: 0 auto; background: white; padding: 13px; border-radius: 12px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); box-sizing: border-box; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif;
+            background-color: var(--bg); color: var(--text); padding: 8px; font-size: 12px; margin: 0; line-height: 1.5;
+        }
+        .container { max-width: 530px; margin: 0 auto; background: white; padding: 13px;
+            border-radius: 12px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); box-sizing: border-box;
+        }
         
-        h3 { text-align: center; margin: 4px 0 16px 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; color: #1e3a8a; }
+        h3 { text-align: center;
+            margin: 4px 0 16px 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; color: #1e3a8a;
+        }
 
-        .select-container { position: relative; margin-bottom: 12px; }
-        .select-label { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 6px; padding-left: 2px; }
-        .selected-wrapper { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 14px; border: 2px solid #94a3b8; background: white; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; box-sizing: border-box; transition: all 0.2s; color: #1e293b; }
-        .selected-wrapper:hover { border-color: var(--primary); background-color: #f8fafc; }
-        .selected-wrapper::after { content: '▼'; font-size: 0.75rem; color: #64748b; transition: transform 0.2s; }
-        .select-container.open .selected-wrapper::after { transform: rotate(180deg); }
-        .dropdown-list { display: none; position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 2px solid #94a3b8; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 1000; box-sizing: border-box; max-height: 290px; overflow-y: auto; margin-top: 4px; padding: 4px; }
-        .select-container.open .dropdown-list { display: block; }
-        .dropdown-item { display: block; padding: 10px 12px; cursor: pointer; font-weight: 600; border-radius: 6px; margin-bottom: 2px; transition: background 0.15s; font-size: 0.92rem; text-align: left; border: 1px solid transparent; color: #1e293b; }
+        .select-container { position: relative; margin-bottom: 12px;
+        }
+        .select-label { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 6px; padding-left: 2px;
+        }
+        .selected-wrapper { display: flex; align-items: center; justify-content: space-between; width: 100%;
+            padding: 12px 14px; border: 2px solid #94a3b8; background: white; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; box-sizing: border-box;
+            transition: all 0.2s; color: #1e293b; }
+        .selected-wrapper:hover { border-color: var(--primary); background-color: #f8fafc;
+        }
+        .selected-wrapper::after { content: '▼'; font-size: 0.75rem; color: #64748b; transition: transform 0.2s;
+        }
+        .select-container.open .selected-wrapper::after { transform: rotate(180deg);
+        }
+        .dropdown-list { display: none; position: absolute; top: 100%; left: 0; width: 100%;
+            background: white; border: 2px solid #94a3b8; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 1000;
+            box-sizing: border-box; max-height: 290px; overflow-y: auto; margin-top: 4px; padding: 4px;
+        }
+        .select-container.open .dropdown-list { display: block;
+        }
+        .dropdown-item { display: block; padding: 10px 12px; cursor: pointer; font-weight: 600;
+            border-radius: 6px; margin-bottom: 2px; transition: background 0.15s; font-size: 0.92rem; text-align: left; border: 1px solid transparent; color: #1e293b;
+        }
         
-        .c-pt { background-color: var(--bg-pt); color: #0369a1; border-color: #7dd3fc; }
-        .c-bs { background-color: var(--bg-bs); color: #15803d; border-color: #86efac; }
-        .c-bb { background-color: var(--bg-bb); color: #1d4ed8; border-color: #93c5fd; }
-        .c-icn { background-color: var(--bg-icn); color: #a16207; border-color: #facc15; }
-        .c-icns { background-color: var(--bg-icns); color: #b45309; border-color: #fbbf24; }
-        .c-icnt { background-color: var(--bg-icnt); color: #c2410c; border-color: #fdba74; }
-        .c-gy { background-color: var(--bg-gy); color: #6d28d9; border-color: #ddd6fe; }
-        .c-uw { background-color: var(--bg-uw); color: #be185d; border-color: #f9a8d4; }
-        .c-ow1, .c-ow2, .c-ow3 { background-color: var(--bg-ow); color: #1e293b; border-color: #cbd5e1; }
-        .dropdown-item:hover { filter: brightness(0.95); }
+        .c-pt { background-color: var(--bg-pt);
+            color: #0369a1; border-color: #7dd3fc; }
+        .c-bs { background-color: var(--bg-bs); color: #15803d; border-color: #86efac;
+        }
+        .c-bb { background-color: var(--bg-bb); color: #1d4ed8; border-color: #93c5fd;
+        }
+        .c-icn { background-color: var(--bg-icn); color: #a16207; border-color: #facc15;
+        }
+        .c-icns { background-color: var(--bg-icns); color: #b45309; border-color: #fbbf24;
+        }
+        .c-icnt { background-color: var(--bg-icnt); color: #c2410c; border-color: #fdba74;
+        }
+        .c-gy { background-color: var(--bg-gy); color: #6d28d9; border-color: #ddd6fe;
+        }
+        .c-uw { background-color: var(--bg-uw); color: #be185d; border-color: #f9a8d4;
+        }
+        .c-ow1, .c-ow2, .c-ow3 { background-color: var(--bg-ow); color: #1e293b; border-color: #cbd5e1;
+        }
+        .dropdown-item:hover { filter: brightness(0.95);
+        }
 
-        .search-box { margin-bottom: 12px; }
-        .search-input { width: 100%; padding: 12px; border: 2px solid #94a3b8; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box; outline: none; color: var(--text); background-color: #fff; transition: border 0.2s; }
-        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .search-box { margin-bottom: 12px;
+        }
+        .search-input { width: 100%; padding: 12px; border: 2px solid #94a3b8; border-radius: 8px;
+            font-size: 0.95rem; box-sizing: border-box; outline: none; color: var(--text); background-color: #fff; transition: border 0.2s;
+        }
+        .search-input:focus { border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
 
-        .sc-section { background: #fef3c7; border: 1px solid #fde68a; padding: 12px; border-radius: 10px; margin-bottom: 12px; }
-        .sc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .sc-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; background: white; padding: 8px 6px; border-radius: 6px; border: 1px solid #e2e8f0; cursor: pointer; white-space: nowrap; color: #44403c; transition: all 0.15s; }
-        .sc-item:has(.sc-check:checked) { background-color: #fcd34d; border-color: #fbbf24; color: #78350f; } 
-        .sc-check { width: 14px; height: 14px; accent-color: #b45309; cursor: pointer; }
-        .flex-inputs { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f59e0b; font-size: 0.85rem; font-weight: 600; color: #78350f; }
-        .h-input, .w-input { width: 52px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 5px; text-align: center; font-weight: bold; outline: none; color: #1e293b; background: white; }
-        .h-input:focus, .w-input:focus { border-color: #b45309; }
+        .sc-section { background: #fef3c7;
+            border: 1px solid #fde68a; padding: 12px; border-radius: 10px; margin-bottom: 12px;
+        }
+        .sc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+        }
+        .sc-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600;
+            background: white; padding: 8px 6px; border-radius: 6px; border: 1px solid #e2e8f0; cursor: pointer; white-space: nowrap; color: #44403c; transition: all 0.15s;
+        }
+        .sc-item:has(.sc-check:checked) { background-color: #fcd34d; border-color: #fbbf24; color: #78350f;
+        } 
+        .sc-check { width: 14px; height: 14px; accent-color: #b45309; cursor: pointer;
+        }
+        .flex-inputs { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 10px;
+            border-top: 1px dashed #f59e0b; font-size: 0.85rem; font-weight: 600; color: #78350f;
+        }
+        .h-input, .w-input { width: 52px; padding: 4px; border: 1px solid #cbd5e1;
+            border-radius: 5px; text-align: center; font-weight: bold; outline: none; color: #1e293b; background: white;
+        }
+        .h-input:focus, .w-input:focus { border-color: #b45309;
+        }
 
-        .result-card { padding: 14px; border-radius: 12px; background: white; border: 1px solid #94a3b8; display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .res-addr-header { font-weight: 700; font-size: 1.1rem; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-align: center; }
+        .result-card { padding: 14px; border-radius: 12px; background: white; border: 1px solid #94a3b8;
+            display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .res-addr-header { font-weight: 700;
+            font-size: 1.1rem; color: #1e293b; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; text-align: center;
+        }
 
-        .section-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .round-toggle-btn { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-        .round-toggle-btn.active { background: #3b82f6; border-color: #2563eb; color: white; }
+        .section-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+        }
+        .round-toggle-btn { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-size: 0.68rem;
+            font-weight: 700; padding: 2px 6px; border-radius: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .round-toggle-btn.active { background: #3b82f6; border-color: #2563eb; color: white;
+        }
 
-        .fare-section { margin-bottom: 10px; background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; }
-        .ft-badge { display: inline-block; padding: 3px 8px; font-weight: 700; font-size: 0.75rem; border-radius: 4px; margin: 0; }
-        .ft-40 { background: #e2e8f0; color: #1e293b; border: 1px solid #cbd5e1; }
-        .ft-20 { background: #e2e8f0; color: #1e293b; border: 1px solid #cbd5e1; }
-        .fare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
-        .fare-box { background: #f1f5f9; padding: 8px 2px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; }
-        .fare-box.highlight { background: #dbeafe; border-color: #93c5fd; } 
-        .fare-label { font-size: 0.72rem; color: #475569; font-weight: 600; margin-bottom: 2px; }
-        .fare-val { font-size: 0.9rem; font-weight: 700; color: #171717; }
-        .fare-box.highlight .fare-val { color: #1d4ed8; font-weight: 800; }
+        .fare-section { margin-bottom: 10px; background: #ffffff; padding: 10px; border-radius: 8px;
+            border: 1px solid #cbd5e1; }
+        .ft-badge { display: inline-block; padding: 3px 8px;
+            font-weight: 700; font-size: 0.75rem; border-radius: 4px; margin: 0; }
+        .ft-40 { background: #e2e8f0;
+            color: #1e293b; border: 1px solid #cbd5e1; }
+        .ft-20 { background: #e2e8f0; color: #1e293b;
+            border: 1px solid #cbd5e1; }
+        .fare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px; margin-top: 6px; }
+        .fare-box { background: #f1f5f9; padding: 8px 2px;
+            border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; }
+        .fare-box.highlight { background: #dbeafe;
+            border-color: #93c5fd; } 
+        .fare-label { font-size: 0.72rem; color: #475569; font-weight: 600;
+            margin-bottom: 2px; }
+        .fare-val { font-size: 0.9rem; font-weight: 700; color: #171717;
+        }
+        .fare-box.highlight .fare-val { color: #1d4ed8; font-weight: 800;
+        }
         
-        .quote-section { margin-top: 12px; padding: 12px; border-radius: 10px; background: #dcfce7; border: 1px solid #86efac; margin-bottom: 12px; }
-        .quote-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #166534; padding-bottom: 6px; font-weight: 700; font-size: 0.9rem; color: #14532d; }
-        .quote-input { width: 48px; padding: 4px; border: 1px solid #22c55e; border-radius: 5px; text-align: center; font-weight: bold; background: white; outline: none; color: #166534; }
-        .quote-input:focus { border-color: #15803d; }
-        .quote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-        .quote-card { background: white; padding: 10px 4px; border-radius: 8px; text-align: center; border: 1px solid #86efac; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.04); }
-        .quote-card-title { font-size: 0.75rem; color: #166534; font-weight: 600; margin-bottom: 2px; }
-        .quote-card-price { font-weight: 800; color: #111827; font-size: 1.3rem; margin-bottom: 4px; } 
-        .margin-badge { display: inline-block; background: #166534; color: white; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #14532d; }
+        .quote-section { margin-top: 12px;
+            padding: 12px; border-radius: 10px; background: #dcfce7; border: 1px solid #86efac; margin-bottom: 12px;
+        }
+        .quote-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #166534;
+            padding-bottom: 6px; font-weight: 700; font-size: 0.9rem; color: #14532d; }
+        .quote-input { width: 48px;
+            padding: 4px; border: 1px solid #22c55e; border-radius: 5px; text-align: center; font-weight: bold; background: white; outline: none; color: #166534;
+        }
+        .quote-input:focus { border-color: #15803d;
+        }
+        .quote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
+        }
+        .quote-card { background: white; padding: 10px 4px; border-radius: 8px; text-align: center;
+            border: 1px solid #86efac; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.04);
+        }
+        .quote-card-title { font-size: 0.75rem; color: #166534; font-weight: 600; margin-bottom: 2px;
+        }
+        .quote-card-price { font-weight: 800; color: #111827; font-size: 1.3rem; margin-bottom: 4px;
+        } 
+        .margin-badge { display: inline-block; background: #166534; color: white; font-size: 0.72rem;
+            font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #14532d;
+        }
         
-        .detail-table-title { font-size: 0.85rem; font-weight: 700; color: #4c1d95; margin: 16px 0 6px 2px; display: flex; align-items: center; gap: 4px; }
-        .detail-table { width: 100%; border-collapse: collapse; background: #f5f3ff; border-radius: 8px; border: 1px solid #ddd6fe; overflow: hidden; font-size: 0.8rem; margin-bottom: 14px; }
-        .detail-table th { background: #e0e7ff; color: #3730a3; font-weight: 700; padding: 6px 8px; text-align: center; border-bottom: 1px solid #c7d2fe; border-right: 1px solid #c7d2fe; }
-        .detail-table td { padding: 6px 8px; text-align: center; color: #4c1d95; border-bottom: 1px solid #ddd6fe; border-right: 1px solid #ddd6fe; font-weight: 600; }
-        .detail-table th:last-child, .detail-table td:last-child { border-right: none; }
-        .detail-table tr:last-child td { border-bottom: none; }
-        .detail-table .row-title { background: #f3e8ff; font-weight: 700; width: 22%; }
+        .copy-btn { width: 100%;
+            margin-top: 10px; padding: 12px; background: #1e293b; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+            transition: background 0.15s; }
+        .copy-btn:hover { background: #0f172a;
+        }
+        /* 새로 추가된 운수사 복사 버튼 스타일 (화주 버튼과 구분을 위해 색상 변경) */
+        .copy-btn.carrier-btn { background: #2563eb;
+            margin-top: 6px; }
+        .copy-btn.carrier-btn:hover { background: #1d4ed8;
+        }
         
-        .rule-info-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 9px 11px; border-radius: 6px; font-size: 0.73rem; color: #64748b; line-height: 1.45; font-weight: 500; }
-        .rule-info-box .title { font-weight: 700; color: #475569; margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
-
-        .copy-btn { width: 100%; margin-top: 10px; padding: 12px; background: #1e293b; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.15s; }
-        .copy-btn:hover { background: #0f172a; }
+        .detail-table-title { font-size: 0.85rem;
+            font-weight: 700; color: #4c1d95; margin: 16px 0 6px 2px; display: flex; align-items: center; gap: 4px;
+        }
+        .detail-table { width: 100%; border-collapse: collapse; background: #f5f3ff; border-radius: 8px;
+            border: 1px solid #ddd6fe; overflow: hidden; font-size: 0.8rem; margin-bottom: 14px;
+        }
+        .detail-table th { background: #e0e7ff; color: #3730a3; font-weight: 700; padding: 6px 8px;
+            text-align: center; border-bottom: 1px solid #c7d2fe; border-right: 1px solid #c7d2fe;
+        }
+        .detail-table td { padding: 6px 8px; text-align: center; color: #4c1d95;
+            border-bottom: 1px solid #ddd6fe; border-right: 1px solid #ddd6fe; font-weight: 600;
+        }
+        .detail-table th:last-child, .detail-table td:last-child { border-right: none;
+        }
+        .detail-table tr:last-child td { border-bottom: none;
+        }
+        .detail-table .row-title { background: #f3e8ff; font-weight: 700; width: 22%;
+        }
+        
+        .rule-info-box { background: #f8fafc;
+            border: 1px solid #e2e8f0; padding: 9px 11px; border-radius: 6px; font-size: 0.73rem; color: #64748b; line-height: 1.45; font-weight: 500;
+        }
+        .rule-info-box .title { font-weight: 700; color: #475569; margin-bottom: 3px; display: flex;
+            align-items: center; gap: 4px; }
     </style>
 </head>
 <body>
@@ -202,6 +299,7 @@
                 </div>
             </div>
             <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()">📋 견적 내용 복사</button>
+            <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()">🚚 운수사 거래용 복사</button>
         </div>
 
         <div class="detail-table-title">
@@ -234,7 +332,7 @@
             <div class="title">📌 안내사항</div>
             • 다수 할증 시 최고 요율 항목(100%)과 나머지(50%)를 합산하되 상위 3개 항목까지만 적용됩니다.
         </div>
-    </div>
+</div>
 </div>
 
 <script>
@@ -31731,14 +31829,15 @@ const meta = {
     ow2: "의왕 편도 검색",
     ow3: "의왕 편도 검색"
 };
-
 let currentType = 'pt';
 let currentItem = null;
 let lastResult = { q40: 0, q20: 0, r40: 0, r20: 0, amt40: 0, amt20: 0, listForCopy40: '', listForCopy20: '', hasSurcharge: false, isMultiSurcharge: false };
-
 let isRoundFare = false;
-let isRoundQuote = false; // 기본설정 OFF
+// [수정 사항 2] 견적가 사사오입 변수 기본값을 true에서 false(OFF)로 수정
+let isRoundQuote = false; 
 let isRoundDetail = false;
+// 운수사 간 거래 텍스트 생성을 위해 할증전 원본 운수사 운임 보관 변수
+let currentCarrierBase = { b20: 0, b40: 0 };
 
 function toggleDropdown() {
     document.getElementById('customSelect').classList.toggle('open');
@@ -31747,11 +31846,11 @@ function toggleDropdown() {
 function selectOrigin(type, text) {
     currentType = type;
     currentItem = null;
-    
     const wrapper = document.querySelector('.selected-wrapper span');
     wrapper.innerText = text;
     wrapper.className = 'dropdown-item c-' + type;
-    wrapper.style.padding = '0'; wrapper.style.border = 'none'; wrapper.style.margin = '0';
+    wrapper.style.padding = '0'; wrapper.style.border = 'none';
+    wrapper.style.margin = '0';
     
     const input = document.getElementById('mainSearchInput');
     input.value = ""; input.placeholder = meta[type];
@@ -31777,40 +31876,47 @@ function runSearch(val) {
         return fullAddress.includes(searchKeyword);
     });
     if (match) { currentItem = match; calculateFare(); } 
-    else { document.getElementById('resultBox').style.display = 'none'; currentItem = null; }
+    else { document.getElementById('resultBox').style.display = 'none'; currentItem = null;
+    }
 }
 
 function toggleRound(target) {
     if (target === 'fare') {
         isRoundFare = !isRoundFare;
         const btn = document.getElementById('btnRoundFare');
-        if (isRoundFare) { btn.innerText = "고시운임 사사오입 ON"; btn.classList.add('active'); } 
-        else { btn.innerText = "고시운임 사사오입 OFF"; btn.classList.remove('active'); }
+        if (isRoundFare) { btn.innerText = "고시운임 사사오입 ON"; btn.classList.add('active');
+        } 
+        else { btn.innerText = "고시운임 사사오입 OFF"; btn.classList.remove('active');
+        }
     } else if (target === 'quote') {
         isRoundQuote = !isRoundQuote;
         const btn = document.getElementById('btnRoundQuote');
-        if (isRoundQuote) { btn.innerText = "견적가 사사오입 ON"; btn.classList.add('active'); } 
-        else { btn.innerText = "견적가 사사오입 OFF"; btn.classList.remove('active'); }
+        if (isRoundQuote) { btn.innerText = "견적가 사사오입 ON"; btn.classList.add('active');
+        } 
+        else { btn.innerText = "견적가 사사오입 OFF"; btn.classList.remove('active');
+        }
     } else if (target === 'detail') {
         isRoundDetail = !isRoundDetail;
         const btn = document.getElementById('btnRoundDetail');
-        if (isRoundDetail) { btn.innerText = "상세금액 사사오입 ON"; btn.classList.add('active'); } 
-        else { btn.innerText = "상세금액 사사오입 OFF"; btn.classList.remove('active'); }
+        if (isRoundDetail) { btn.innerText = "상세금액 사사오입 ON"; btn.classList.add('active');
+        } 
+        else { btn.innerText = "상세금액 사사오입 OFF"; btn.classList.remove('active');
+        }
     }
     calculateFare(); 
 }
 
 function calculateFare() {
     if(!currentItem) return;
-
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
     const overLen = parseFloat(document.getElementById('overLength').value) || 0;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-
     const p40WeightRate = weight > 23 ? (Math.floor(weight - 23) + 1) * 0.1 : 0;
     const p20WeightRate = weight > 20 ? (Math.floor(weight - 20) + 1) * 0.1 : 0;
     const oversizeRate = overLen > 0 ? Math.ceil(overLen / 10) * 0.1 : 0;
-
+    // 복사용을 위해 원본 고시 운수사간 운임 보관
+    currentCarrierBase.b40 = currentItem.p40b;
+    currentCarrierBase.b20 = currentItem.p20b;
     function getFinalRate(wRate) {
         let sc = [];
         document.querySelectorAll('.sc-check:checked').forEach(el => {
@@ -31818,7 +31924,6 @@ function calculateFare() {
         });
         if(wRate > 0) sc.push({ name: "중량", rate: wRate });
         if(oversizeRate > 0) sc.push({ name: "활대", rate: oversizeRate });
-        
         sc.sort((a, b) => b.rate - a.rate);
         const top3 = sc.slice(0, 3);
         
@@ -31834,23 +31939,23 @@ function calculateFare() {
     lastResult.isMultiSurcharge = (res40.originalCount >= 2 || res20.originalCount >= 2);
 
     document.getElementById('resultBox').style.display = 'block';
-    const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
+    const fullAddr = currentItem.g ?
+        `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     document.getElementById('resAddr').innerText = `${fullAddr} (${currentItem.d}km)`;
     
     const fmt = (v) => Math.round(v).toLocaleString() + "원";
     const round1000 = (val) => Math.round(val / 1000) * 1000;
-
     // 1. 고시운임 계산 (상단 탭 출력용)
     let f40t = currentItem.p40t * (1 + res40.total);
     let f40b = currentItem.p40b * (1 + res40.total);
     let f40s = currentItem.p40s * (1 + res40.total);
-    
     let f20t = currentItem.p20t * (1 + res20.total);
     let f20b = currentItem.p20b * (1 + res20.total);
     let f20s = currentItem.p20s * (1 + res20.total);
 
     if (isRoundFare) {
-        f40t = round1000(f40t); f40b = round1000(f40b); f40s = round1000(f40s);
+        f40t = round1000(f40t);
+        f40b = round1000(f40b); f40s = round1000(f40s);
         f20t = round1000(f20t); f20b = round1000(f20b); f20s = round1000(f20s);
     }
 
@@ -31880,11 +31985,10 @@ function calculateFare() {
         
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        
+         
         uiDetails40.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 적용)`);
         copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
-
     let calcAmt20 = 0;
     let uiDetails20 = [];
     let copyDetails20 = [];
@@ -31900,7 +32004,6 @@ function calculateFare() {
         uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 적용)`);
         copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
-
     if (res40.items.length === 0) {
         calcAmt40 = Math.round(baseQuote40 * res40.total);
         if (isRoundDetail) calcAmt40 = round1000(calcAmt40);
@@ -31934,21 +32037,24 @@ function calculateFare() {
     
     lastResult.listForCopy40 = copyDetails40.join('\n') || '';
     lastResult.listForCopy20 = copyDetails20.join('\n') || '';
-
     document.getElementById('tableR40').innerText = `${lastResult.r40}% (+${lastResult.amt40.toLocaleString()}원)`;
     document.getElementById('tableR20').innerText = `${lastResult.r20}% (+${lastResult.amt20.toLocaleString()}원)`;
     
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
 
-    // 5. 수익(마진) 금액 산출 - 견적가 사사오입 설정 여부(isRoundQuote)와 연동하여 동적 처리
+    // 5. 수익(마진) 금액 및 [수정 사항 1] 마진율 산출
     let rawMargin40 = isRoundQuote ? round1000(q40 - f40t) : Math.round(q40 - f40t);
     let rawMargin20 = isRoundQuote ? round1000(q20 - f20t) : Math.round(q20 - f20t);
+    
+    let marginRate40 = q40 > 0 ? ((rawMargin40 / q40) * 100).toFixed(1) : "0.0";
+    let marginRate20 = q20 > 0 ? ((rawMargin20 / q20) * 100).toFixed(1) : "0.0";
 
     document.getElementById('q40').innerText = fmt(q40);
-    document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)}`;
+    // [수정 사항 1] 수익 금액 우측에 마진율 추가 표시
+    document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)} (마진율: ${marginRate40}%)`;
     document.getElementById('q20').innerText = fmt(q20);
-    document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)}`;
+    document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)} (마진율: ${marginRate20}%)`;
 }
 
 function copyQuoteText() {
@@ -31956,25 +32062,20 @@ function copyQuoteText() {
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
-    
     let text = `[ 운임 견적 안내 ]
-──────────────────────
 ■ 목적지: ${fullAddr}
 
 ■ 20FT 운임: ${lastResult.q20.toLocaleString()} 원`;
-
     if (lastResult.hasSurcharge && lastResult.amt20 > 0) {
         text += `\n▶ 할증(${lastResult.r20}%): ${lastResult.amt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
     }
 
     text += `\n\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
-
     if (lastResult.hasSurcharge && lastResult.amt40 > 0) {
         text += `\n▶ 할증(${lastResult.r40}%): ${lastResult.amt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
     }
 
-    text += `\n──────────────────────\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} 기준)`;
-
+    text += `\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} 기준)`;
     if (lastResult.isMultiSurcharge) {
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
@@ -31983,6 +32084,46 @@ function copyQuoteText() {
         const btn = document.getElementById('copyBtn');
         btn.innerText = "✅ 복사 완료!";
         setTimeout(() => { btn.innerText = "📋 견적 내용 복사"; }, 1500);
+    });
+}
+
+// 운수사간 거래 고시 운임 복사 함수
+function copyCarrierFareText() {
+    if (!currentItem) return;
+    const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
+    const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
+    const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
+    const round1000 = (val) => Math.round(val / 1000) * 1000;
+    // 할증이 계산된 최종 운수사 거래 운임 산출
+    let carrier40 = currentCarrierBase.b40 * (1 + (lastResult.r40 / 100));
+    let carrier20 = currentCarrierBase.b20 * (1 + (lastResult.r20 / 100));
+    // 고시운임 사사오입 옵션 연동
+    if (isRoundFare) {
+        carrier40 = round1000(carrier40);
+        carrier20 = round1000(carrier20);
+    } else {
+        carrier40 = Math.round(carrier40);
+        carrier20 = Math.round(carrier20);
+    }
+
+    let text = `[ 운수사 거래 운임 안내 ]
+■ 목적지: ${fullAddr}
+
+■ 20FT 운임: ${carrier20.toLocaleString()} 원`;
+    if (lastResult.hasSurcharge) {
+        text += `\n▶ 할증률: ${lastResult.r20}%`;
+    }
+
+    text += `\n\n■ 40FT 운임: ${carrier40.toLocaleString()} 원`;
+    if (lastResult.hasSurcharge) {
+        text += `\n▶ 할증률: ${lastResult.r40}%`;
+    }
+
+    text += `\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} / 운수사간 거래 기준)`;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyCarrierBtn');
+        btn.innerText = "✅ 복사 완료!";
+        setTimeout(() => { btn.innerText = "🚚 운수사 거래용 복사"; }, 1500);
     });
 }
 
