@@ -32144,24 +32144,25 @@ function renderKakaoMap(lat, lng, placeName) {
 }
 
 function renderKakaoRoadview(lat, lng) {
-    const mapEl = document.getElementById('kakaoMapContainer');
     const rvEl = document.getElementById('kakaoRoadviewContainer');
-    mapEl.style.display = 'none';
-    rvEl.style.display = 'block';
-
     if (typeof kakao === 'undefined' || !kakao.maps) return;
-    if (!kakaoRoadviewInstance) kakaoRoadviewInstance = new kakao.maps.Roadview(rvEl);
+
     if (!kakaoRoadviewClient) kakaoRoadviewClient = new kakao.maps.RoadviewClient();
 
     const pos = new kakao.maps.LatLng(lat, lng);
-    rvEl.innerHTML = '';
+
     kakaoRoadviewClient.getNearestPanoId(pos, 50, function(panoId) {
         if (panoId === null) {
-            rvEl.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:0.85rem;">이 위치는 로드뷰를 지원하지 않습니다</div>';
+            rvEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:0.85rem;">이 위치는 로드뷰를 지원하지 않습니다</div>';
+            kakaoRoadviewInstance = null;
             return;
         }
-        kakaoRoadviewInstance.setPanoId(panoId, pos);
-        setTimeout(() => kakaoRoadviewInstance.relayout(), 100);
+        // 매번 새로 인스턴스 생성 (모달 open/close 반복 시 컨테이너가 재활용되므로)
+        kakaoRoadviewInstance = new kakao.maps.Roadview(rvEl);
+        setTimeout(() => {
+            kakaoRoadviewInstance.relayout();
+            kakaoRoadviewInstance.setPanoId(panoId, pos);
+        }, 150);
     });
 }
 
@@ -32169,10 +32170,19 @@ function toggleMapView(type) {
     if (!currentMapCoord) return;
     document.getElementById('btnShowMap').classList.toggle('active', type === 'map');
     document.getElementById('btnShowRoadview').classList.toggle('active', type === 'roadview');
-    document.getElementById('kakaoMapContainer').style.display = type === 'map' ? 'block' : 'none';
-    document.getElementById('kakaoRoadviewContainer').style.display = type === 'roadview' ? 'block' : 'none';
-    if (type === 'map') renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName);
-    else renderKakaoRoadview(currentMapCoord.lat, currentMapCoord.lng);
+
+    const mapEl = document.getElementById('kakaoMapContainer');
+    const rvEl = document.getElementById('kakaoRoadviewContainer');
+
+    if (type === 'map') {
+        rvEl.style.display = 'none';
+        mapEl.style.display = 'block';
+        renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName);
+    } else {
+        mapEl.style.display = 'none';
+        rvEl.style.display = 'block';
+        renderKakaoRoadview(currentMapCoord.lat, currentMapCoord.lng);
+    }
 }
 
 // 카카오에서 받은 주소(시/도 시/군/구 동/읍/면 ...)를 기존 운임 DB(s, g, e)와 매칭
