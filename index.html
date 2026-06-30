@@ -87,6 +87,18 @@
         .search-input:focus { border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
 
+        .kakao-suggest-list { display: none; position: absolute; top: 100%; left: 0; width: 100%;
+            background: white; border: 2px solid #94a3b8; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            z-index: 1100; max-height: 260px; overflow-y: auto; margin-top: 4px; box-sizing: border-box; }
+        .kakao-suggest-list.open { display: block; }
+        .kakao-suggest-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+        .kakao-suggest-item:last-child { border-bottom: none; }
+        .kakao-suggest-item:hover { background: #f1f5f9; }
+        .kakao-suggest-addr { font-weight: 700; font-size: 0.88rem; color: #1e293b; }
+        .kakao-suggest-sub { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+        .kakao-suggest-empty { padding: 12px; text-align: center; font-size: 0.85rem; color: #94a3b8; }
+        .kakao-suggest-nomatch { color: #dc2626; font-size: 0.72rem; margin-top: 2px; }
+
         .sc-section { background: #fef3c7;
             border: 1px solid #fde68a; padding: 12px; border-radius: 10px; margin-bottom: 12px;
         }
@@ -228,8 +240,9 @@
         </div>
     </div>
 
-    <div class="search-box">
-        <input type="text" id="mainSearchInput" class="search-input" placeholder="행선지 명칭 검색 (예: 포승, 안중)" oninput="runSearch(this.value)">
+    <div class="search-box" style="position: relative;">
+        <input type="text" id="mainSearchInput" class="search-input" placeholder="행선지 명칭 검색 (예: 포승, 안중)" oninput="onSearchInput(this.value)" autocomplete="off">
+        <div id="kakaoSuggestList" class="kakao-suggest-list"></div>
     </div>
 
     <div class="sc-section">
@@ -335,6 +348,7 @@
 </div>
 </div>
 
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=a5f06d86e52b8b59201d7aab44867a43&libraries=services"></script>
 <script>
 const database = { pt: [ {s:"서울특별시", g:"종로구", e:"청운효자동", d:83, p40t:418300, p40b:441500, p40s:465400, p20t:371500, p20b:392000, p20s:413100 },
  {s:"서울특별시", g:"종로구", e:"사직동", d:80, p40t:410700, p40b:433400, p40s:456800, p20t:364800, p20b:384900, p20s:405600 },
@@ -31857,6 +31871,11 @@ function selectOrigin(type, text) {
     
     document.getElementById('resultBox').style.display = 'none';
     document.getElementById('customSelect').classList.remove('open');
+
+    const listEl = document.getElementById('kakaoSuggestList');
+    if (listEl) { listEl.classList.remove('open'); listEl.innerHTML = ''; }
+    const notice = document.getElementById('kakaoMatchNotice');
+    if (notice) notice.innerText = '';
 }
 
 window.addEventListener('click', function(e) {
@@ -31879,6 +31898,136 @@ function runSearch(val) {
     else { document.getElementById('resultBox').style.display = 'none'; currentItem = null;
     }
 }
+
+// ===== 카카오 지도 주소 자동완성 검색 =====
+let kakaoPlaces = null;
+let kakaoDebounceTimer = null;
+
+function getKakaoPlaces() {
+    if (kakaoPlaces) return kakaoPlaces;
+    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) return null;
+    kakaoPlaces = new kakao.maps.services.Places();
+    return kakaoPlaces;
+}
+
+// 입력 시: 1) 카카오 자동완성 목록 호출  2) 기존 로컬 DB 매칭(운임 계산)도 그대로 수행
+function onSearchInput(val) {
+    runSearch(val);
+
+    clearTimeout(kakaoDebounceTimer);
+    const keyword = val.trim();
+    const listEl = document.getElementById('kakaoSuggestList');
+
+    if (keyword.length < 2) {
+        listEl.classList.remove('open');
+        listEl.innerHTML = '';
+        return;
+    }
+
+    kakaoDebounceTimer = setTimeout(() => {
+        const places = getKakaoPlaces();
+        if (!places) {
+            listEl.classList.remove('open');
+            return;
+        }
+        places.keywordSearch(keyword, function(data, status) {
+            if (status !== kakao.maps.services.Status.OK || !data || data.length === 0) {
+                listEl.innerHTML = '<div class="kakao-suggest-empty">검색 결과가 없습니다</div>';
+                listEl.classList.add('open');
+                return;
+            }
+            renderKakaoSuggestions(data.slice(0, 8));
+        });
+    }, 250);
+}
+
+function renderKakaoSuggestions(items) {
+    const listEl = document.getElementById('kakaoSuggestList');
+    listEl.innerHTML = items.map((item, idx) => {
+        const addr = item.road_address_name || item.address_name || '';
+        return `<div class="kakao-suggest-item" onclick="selectKakaoSuggestion(${idx})">
+            <div class="kakao-suggest-addr">${item.place_name}</div>
+            <div class="kakao-suggest-sub">${addr}</div>
+        </div>`;
+    }).join('');
+    listEl.classList.add('open');
+    window._kakaoSuggestData = items;
+}
+
+// 자동완성 목록에서 선택했을 때: 선택한 주소 텍스트로 기존 DB와 매칭하여 운임 계산
+function selectKakaoSuggestion(idx) {
+    const item = window._kakaoSuggestData[idx];
+    if (!item) return;
+
+    const fullAddress = item.address_name || item.road_address_name || '';
+    const input = document.getElementById('mainSearchInput');
+    input.value = item.place_name;
+
+    const listEl = document.getElementById('kakaoSuggestList');
+    listEl.classList.remove('open');
+
+    const matched = matchDatabaseByAddress(fullAddress);
+    if (matched) {
+        currentItem = matched;
+        calculateFare();
+        showKakaoMatchNotice(true);
+    } else {
+        currentItem = null;
+        document.getElementById('resultBox').style.display = 'none';
+        showKakaoMatchNotice(false);
+    }
+}
+
+// 카카오에서 받은 주소(시/도 시/군/구 동/읍/면 ...)를 기존 운임 DB(s, g, e)와 매칭
+function matchDatabaseByAddress(fullAddress) {
+    const tokens = fullAddress.split(/\s+/).filter(Boolean);
+    const list = database[currentType] || [];
+
+    // 1) 동/읍/면/리 단위까지 포함해 뒤에서부터 점점 넓혀가며 매칭 시도 (가장 구체적인 단위 우선)
+    for (let take = tokens.length; take >= 1; take--) {
+        const partial = tokens.slice(0, take).join('').replace(/\s+/g, '');
+        const found = list.find(it => {
+            const dbFull = `${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, '');
+            return dbFull.includes(partial) || partial.includes(`${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, ''));
+        });
+        if (found) return found;
+    }
+
+    // 2) 동/읍/면/리로 끝나는 토큰만 따로 매칭 (시군구 표기가 다를 경우 대비)
+    const dongToken = [...tokens].reverse().find(t => /(동|읍|면|리)$/.test(t));
+    if (dongToken) {
+        const found = list.find(it => (it.e || '').includes(dongToken) || dongToken.includes(it.e || ''));
+        if (found) return found;
+    }
+
+    return null;
+}
+
+function showKakaoMatchNotice(success) {
+    let notice = document.getElementById('kakaoMatchNotice');
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'kakaoMatchNotice';
+        notice.className = 'kakao-suggest-nomatch';
+        document.getElementById('mainSearchInput').insertAdjacentElement('afterend', notice);
+    }
+    if (success) {
+        notice.style.color = '#16a34a';
+        notice.innerText = '✔ 운임 데이터와 매칭되었습니다';
+    } else {
+        notice.style.color = '#dc2626';
+        notice.innerText = '⚠ 해당 행선지는 등록된 운임 데이터에 없습니다. 다른 명칭으로 다시 검색해보세요.';
+    }
+}
+
+// 바깥 영역 클릭 시 자동완성 목록 닫기
+window.addEventListener('click', function(e) {
+    const box = document.querySelector('.search-box');
+    if (box && !box.contains(e.target)) {
+        const listEl = document.getElementById('kakaoSuggestList');
+        if (listEl) listEl.classList.remove('open');
+    }
+});
 
 function toggleRound(target) {
     if (target === 'fare') {
