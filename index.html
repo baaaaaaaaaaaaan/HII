@@ -31901,6 +31901,7 @@ function runSearch(val) {
 
 // ===== 카카오 지도 주소 자동완성 검색 =====
 let kakaoPlaces = null;
+let kakaoGeocoder = null;
 let kakaoDebounceTimer = null;
 
 function getKakaoPlaces() {
@@ -31908,6 +31909,13 @@ function getKakaoPlaces() {
     if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) return null;
     kakaoPlaces = new kakao.maps.services.Places();
     return kakaoPlaces;
+}
+
+function getKakaoGeocoder() {
+    if (kakaoGeocoder) return kakaoGeocoder;
+    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) return null;
+    kakaoGeocoder = new kakao.maps.services.Geocoder();
+    return kakaoGeocoder;
 }
 
 // 입력 시: 1) 카카오 자동완성 목록 호출  2) 기존 로컬 DB 매칭(운임 계산)도 그대로 수행
@@ -31954,19 +31962,42 @@ function renderKakaoSuggestions(items) {
     window._kakaoSuggestData = items;
 }
 
-// 자동완성 목록에서 선택했을 때: 선택한 주소 텍스트로 기존 DB와 매칭하여 운임 계산
+// 자동완성 목록에서 선택했을 때: 좌표 → 행정동 변환을 거쳐 정확한 시/군/구·읍/면/동으로 DB 매칭
 function selectKakaoSuggestion(idx) {
     const item = window._kakaoSuggestData[idx];
     if (!item) return;
 
-    const fullAddress = item.address_name || item.road_address_name || '';
     const input = document.getElementById('mainSearchInput');
     input.value = item.place_name;
 
     const listEl = document.getElementById('kakaoSuggestList');
     listEl.classList.remove('open');
 
-    const matched = matchDatabaseByAddress(fullAddress);
+    const fallbackAddress = item.address_name || item.road_address_name || '';
+    const geocoder = getKakaoGeocoder();
+
+    if (!geocoder || !item.x || !item.y) {
+        applyMatchResult(matchDatabaseByAddress(fallbackAddress));
+        return;
+    }
+
+    geocoder.coord2RegionCode(parseFloat(item.x), parseFloat(item.y), function(result, status) {
+        if (status !== kakao.maps.services.Status.OK || !result || result.length === 0) {
+            applyMatchResult(matchDatabaseByAddress(fallbackAddress));
+            return;
+        }
+        // 행정동(H) 기준 우선 사용, 없으면 법정동(B) 사용
+        const region = result.find(r => r.region_type === 'H') || result[0];
+        const matched = matchDatabaseByRegion(region.region_1depth_name, region.region_2depth_name, region.region_3depth_name);
+        if (matched) {
+            applyMatchResult(matched);
+        } else {
+            applyMatchResult(matchDatabaseByAddress(fallbackAddress));
+        }
+    });
+}
+
+function applyMatchResult(matched) {
     if (matched) {
         currentItem = matched;
         calculateFare();
@@ -31978,13 +32009,32 @@ function selectKakaoSuggestion(idx) {
     }
 }
 
+// 행정구역명(시/도, 시/군/구, 읍/면/동)으로 정확하게 DB 매칭
+function matchDatabaseByRegion(region1, region2, region3) {
+    const list = database[currentType] || [];
+    if (!region3) return null;
+
+    // 1) 읍/면/동 + 시/군/구 모두 일치 (가장 정확)
+    let found = list.find(it => it.e === region3 && (!it.g || it.g === region2 || it.s.includes(region2) || region2.includes(it.s)));
+    if (found) return found;
+
+    // 2) 읍/면/동 명칭 정확히 일치
+    found = list.find(it => it.e === region3);
+    if (found) return found;
+
+    // 3) 읍/면/동 명칭 일부 포함 관계로 유사 매칭 (예: "1동"/"2동" 등 세부 표기 차이 대비)
+    found = list.find(it => it.e && (it.e.includes(region3) || region3.includes(it.e)));
+    return found || null;
+}
+
 // 카카오에서 받은 주소(시/도 시/군/구 동/읍/면 ...)를 기존 운임 DB(s, g, e)와 매칭
 function matchDatabaseByAddress(fullAddress) {
     const tokens = fullAddress.split(/\s+/).filter(Boolean);
     const list = database[currentType] || [];
 
     // 1) 동/읍/면/리 단위까지 포함해 뒤에서부터 점점 넓혀가며 매칭 시도 (가장 구체적인 단위 우선)
-    for (let take = tokens.length; take >= 1; take--) {
+    // 시/도 한 단어만으로는 매칭하지 않도록 최소 2개 토큰(시/도+시/군/구) 이상만 시도
+    for (let take = tokens.length; take >= 2; take--) {
         const partial = tokens.slice(0, take).join('').replace(/\s+/g, '');
         const found = list.find(it => {
             const dbFull = `${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, '');
