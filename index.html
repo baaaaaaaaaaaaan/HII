@@ -99,6 +99,32 @@
         .kakao-suggest-empty { padding: 12px; text-align: center; font-size: 0.85rem; color: #94a3b8; }
         .kakao-suggest-nomatch { color: #dc2626; font-size: 0.72rem; margin-top: 2px; }
 
+        .map-toggle-btn { background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569; font-size: 0.78rem;
+            font-weight: 700; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+        .map-toggle-btn.active { background: #3b82f6; border-color: #2563eb; color: white; }
+
+        .map-open-btn { width:100%; padding:10px; background:var(--primary); color:white; border:none;
+            border-radius:8px; font-size:0.88rem; font-weight:700; cursor:pointer; letter-spacing:0.03em; }
+        .map-open-btn:hover { filter: brightness(1.1); }
+
+        .map-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+            z-index:2000; align-items:center; justify-content:center; }
+        .map-modal-overlay.open { display:flex; }
+        .map-modal-box { background:white; border-radius:14px; width:92vw; max-width:560px;
+            box-shadow:0 20px 40px rgba(0,0,0,0.3); overflow:hidden; display:flex; flex-direction:column; }
+        .map-modal-header { display:flex; align-items:center; justify-content:space-between;
+            padding:14px 16px 10px; border-bottom:1px solid #e2e8f0; }
+        .map-modal-header span { font-weight:800; font-size:1rem; color:#1e293b; }
+        .map-modal-close { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#64748b; line-height:1; }
+        .map-modal-close:hover { color:#1e293b; }
+        .map-modal-tabs { display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid #e2e8f0; }
+        .map-tab-btn { background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:0.8rem;
+            font-weight:700; padding:7px 12px; border-radius:7px; cursor:pointer; text-decoration:none; }
+        .map-tab-btn.active { background:var(--primary); border-color:var(--primary); color:white; }
+        .direction-btn { margin-left:auto; background:#fee2e2; border-color:#fca5a5; color:#dc2626; }
+        .direction-btn:hover { background:#dc2626; color:white; }
+        .map-modal-view { width:100%; height:360px; }
+
         .sc-section { background: #fef3c7;
             border: 1px solid #fde68a; padding: 12px; border-radius: 10px; margin-bottom: 12px;
         }
@@ -243,6 +269,26 @@
     <div class="search-box" style="position: relative;">
         <input type="text" id="mainSearchInput" class="search-input" placeholder="행선지 명칭 검색 (예: 포승, 안중)" oninput="onSearchInput(this.value)" autocomplete="off">
         <div id="kakaoSuggestList" class="kakao-suggest-list"></div>
+    </div>
+    <div id="mapBtnWrap" style="display:none; margin-bottom:10px;">
+        <button type="button" class="map-open-btn" onclick="openMapModal()">🗺 지도 · 로드뷰 · 길찾기 보기</button>
+    </div>
+
+    <!-- 지도 팝업 모달 -->
+    <div id="mapModal" class="map-modal-overlay" onclick="closeMapModalOutside(event)">
+        <div class="map-modal-box">
+            <div class="map-modal-header">
+                <span id="mapModalTitle">지도 보기</span>
+                <button type="button" class="map-modal-close" onclick="closeMapModal()">✕</button>
+            </div>
+            <div class="map-modal-tabs">
+                <button type="button" id="btnShowMap" class="map-tab-btn active" onclick="toggleMapView('map')">🗺 지도</button>
+                <button type="button" id="btnShowRoadview" class="map-tab-btn" onclick="toggleMapView('roadview')">📷 로드뷰</button>
+                <a id="kakaoDirectionLink" class="map-tab-btn direction-btn" target="_blank" rel="noopener">🧭 길찾기</a>
+            </div>
+            <div id="kakaoMapContainer" class="map-modal-view"></div>
+            <div id="kakaoRoadviewContainer" class="map-modal-view" style="display:none;"></div>
+        </div>
     </div>
 
     <div class="sc-section">
@@ -31876,6 +31922,11 @@ function selectOrigin(type, text) {
     if (listEl) { listEl.classList.remove('open'); listEl.innerHTML = ''; }
     const notice = document.getElementById('kakaoMatchNotice');
     if (notice) notice.innerText = '';
+
+    const mapPanel = document.getElementById('mapBtnWrap');
+    if (mapPanel) mapPanel.style.display = 'none';
+    closeMapModal();
+    currentMapCoord = null;
 }
 
 window.addEventListener('click', function(e) {
@@ -31976,6 +32027,11 @@ function selectKakaoSuggestion(idx) {
     const fallbackAddress = item.address_name || item.road_address_name || '';
     const geocoder = getKakaoGeocoder();
 
+    // 좌표가 있으면 지도/로드뷰/길찾기 패널 표시
+    if (item.x && item.y) {
+        showMapPanel(parseFloat(item.y), parseFloat(item.x), item.place_name);
+    }
+
     if (!geocoder || !item.x || !item.y) {
         applyMatchResult(matchDatabaseByAddress(fallbackAddress));
         return;
@@ -32025,6 +32081,98 @@ function matchDatabaseByRegion(region1, region2, region3) {
     // 3) 읍/면/동 명칭 일부 포함 관계로 유사 매칭 (예: "1동"/"2동" 등 세부 표기 차이 대비)
     found = list.find(it => it.e && (it.e.includes(region3) || region3.includes(it.e)));
     return found || null;
+}
+
+// ===== 지도 / 로드뷰 / 길찾기 =====
+let kakaoMapInstance = null;
+let kakaoMarkerInstance = null;
+let kakaoRoadviewInstance = null;
+let kakaoRoadviewClient = null;
+let currentMapCoord = null;
+
+function showMapPanel(lat, lng, placeName) {
+    currentMapCoord = { lat, lng, placeName: placeName || '목적지' };
+    // 지도보기 버튼만 표시 (팝업은 버튼 클릭 시 열림)
+    document.getElementById('mapBtnWrap').style.display = 'block';
+    const linkEl = document.getElementById('kakaoDirectionLink');
+    linkEl.href = `https://map.kakao.com/link/to/${encodeURIComponent(currentMapCoord.placeName)},${lat},${lng}`;
+    document.getElementById('mapModalTitle').textContent = `📍 ${placeName}`;
+}
+
+function openMapModal() {
+    if (!currentMapCoord) return;
+    document.getElementById('mapModal').classList.add('open');
+    // 기본은 지도 탭
+    document.getElementById('btnShowMap').classList.add('active');
+    document.getElementById('btnShowRoadview').classList.remove('active');
+    document.getElementById('kakaoMapContainer').style.display = 'block';
+    document.getElementById('kakaoRoadviewContainer').style.display = 'none';
+    setTimeout(() => renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName), 80);
+}
+
+function closeMapModal() {
+    document.getElementById('mapModal').classList.remove('open');
+}
+
+function closeMapModalOutside(e) {
+    if (e.target === document.getElementById('mapModal')) closeMapModal();
+}
+
+function renderKakaoMap(lat, lng, placeName) {
+    const mapEl = document.getElementById('kakaoMapContainer');
+    const rvEl = document.getElementById('kakaoRoadviewContainer');
+    mapEl.style.display = 'block';
+    rvEl.style.display = 'none';
+
+    if (typeof kakao === 'undefined' || !kakao.maps) return;
+    const center = new kakao.maps.LatLng(lat, lng);
+
+    if (!kakaoMapInstance) {
+        kakaoMapInstance = new kakao.maps.Map(mapEl, { center: center, level: 4 });
+    } else {
+        kakaoMapInstance.relayout();
+        kakaoMapInstance.setCenter(center);
+    }
+
+    if (kakaoMarkerInstance) kakaoMarkerInstance.setMap(null);
+    kakaoMarkerInstance = new kakao.maps.Marker({ position: center, map: kakaoMapInstance });
+
+    if (placeName) {
+        const infowindow = new kakao.maps.InfoWindow({ content: `<div style="padding:4px 8px;font-size:12px;">${placeName}</div>` });
+        infowindow.open(kakaoMapInstance, kakaoMarkerInstance);
+    }
+}
+
+function renderKakaoRoadview(lat, lng) {
+    const mapEl = document.getElementById('kakaoMapContainer');
+    const rvEl = document.getElementById('kakaoRoadviewContainer');
+    mapEl.style.display = 'none';
+    rvEl.style.display = 'block';
+
+    if (typeof kakao === 'undefined' || !kakao.maps) return;
+    if (!kakaoRoadviewInstance) kakaoRoadviewInstance = new kakao.maps.Roadview(rvEl);
+    if (!kakaoRoadviewClient) kakaoRoadviewClient = new kakao.maps.RoadviewClient();
+
+    const pos = new kakao.maps.LatLng(lat, lng);
+    rvEl.innerHTML = '';
+    kakaoRoadviewClient.getNearestPanoId(pos, 50, function(panoId) {
+        if (panoId === null) {
+            rvEl.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:0.85rem;">이 위치는 로드뷰를 지원하지 않습니다</div>';
+            return;
+        }
+        kakaoRoadviewInstance.setPanoId(panoId, pos);
+        setTimeout(() => kakaoRoadviewInstance.relayout(), 100);
+    });
+}
+
+function toggleMapView(type) {
+    if (!currentMapCoord) return;
+    document.getElementById('btnShowMap').classList.toggle('active', type === 'map');
+    document.getElementById('btnShowRoadview').classList.toggle('active', type === 'roadview');
+    document.getElementById('kakaoMapContainer').style.display = type === 'map' ? 'block' : 'none';
+    document.getElementById('kakaoRoadviewContainer').style.display = type === 'roadview' ? 'block' : 'none';
+    if (type === 'map') renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName);
+    else renderKakaoRoadview(currentMapCoord.lat, currentMapCoord.lng);
 }
 
 // 카카오에서 받은 주소(시/도 시/군/구 동/읍/면 ...)를 기존 운임 DB(s, g, e)와 매칭
