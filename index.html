@@ -25,10 +25,18 @@
         }
         
         body { font-family: 'Pretendard', -apple-system, sans-serif;
-            background-color: var(--bg); color: var(--text); padding: 8px; font-size: 12px; margin: 0; line-height: 1.5;
+            background-color: var(--bg); color: var(--text); padding: 24px 16px; font-size: 12px; margin: 0; line-height: 1.5;
         }
-        .container { max-width: 530px; margin: 0 auto; background: white; padding: 13px;
-            border-radius: 12px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); box-sizing: border-box;
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 28px 36px;
+            border-radius: 16px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.10); box-sizing: border-box;
+        }
+
+        /* 모바일에서만 카드형 레이아웃 유지 */
+        @media (max-width: 600px) {
+            body { padding: 8px; }
+            .container { max-width: 100%; padding: 13px;
+                border-radius: 12px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+            }
         }
         
         h3 { text-align: center;
@@ -146,6 +154,32 @@
         .h-input:focus, .w-input:focus { border-color: #b45309;
         }
 
+        /* ===== 모바일 반응형 ===== */
+        @media (max-width: 480px) {
+            /* 체크박스 3열 → 2열 */
+            .sc-grid { grid-template-columns: repeat(2, 1fr); }
+
+            /* 활대품/내품 입력 행: 가로 → 세로 */
+            .flex-inputs { flex-direction: column; gap: 8px; }
+            .flex-inputs > div { display: flex; align-items: center; gap: 8px; }
+            .h-input, .w-input { width: 70px; }
+
+            /* 지도 모달 높이 조정 */
+            .map-modal-box { width: 98vw; }
+            .map-modal-view { height: 280px; }
+        }
+
+        /* ===== PC 2컬럼 레이아웃 ===== */
+        @media (min-width: 900px) {
+            .map-modal-box { max-width: 800px; }
+            .map-modal-view { height: 480px; }
+            .pc-layout { display: grid; grid-template-columns: 400px 1fr; gap: 28px; align-items: start; }
+            .pc-left { position: sticky; top: 20px; }
+            .pc-left .sc-grid { grid-template-columns: repeat(2, 1fr); }
+            .pc-left .sc-item { white-space: normal; font-size: 0.78rem; }
+            .pc-right { min-width: 0; }
+        }
+
         .result-card { padding: 14px; border-radius: 12px; background: white; border: 1px solid #94a3b8;
             display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .res-addr-header { font-weight: 700;
@@ -246,6 +280,9 @@
 <div class="container">
     <h3>📊 경평물류 안전운임 조회</h3>
 
+    <div class="pc-layout">
+    <div class="pc-left">
+
     <div class="select-label">📍 출발 거점 선택</div>
     <div class="select-container" id="customSelect">
         <div class="selected-wrapper" onclick="toggleDropdown()">
@@ -312,6 +349,9 @@
             <div>⚖️ 내품 무게: <input type="number" id="weightVal" class="w-input" value="0" oninput="calculateFare()"> 톤</div>
         </div>
     </div>
+
+    </div><!-- /pc-left -->
+    <div class="pc-right">
 
     <div id="resultBox" class="result-card">
         <div id="resAddr" class="res-addr-header">-</div>
@@ -391,8 +431,9 @@
             <div class="title">📌 안내사항</div>
             • 다수 할증 시 최고 요율 항목(100%)과 나머지(50%)를 합산하되 상위 3개 항목까지만 적용됩니다.
         </div>
-</div>
-</div>
+</div><!-- /pc-right -->
+</div><!-- /pc-layout -->
+</div><!-- /container -->
 
 <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=af683a08ef26fde393cca38b704d39a8&libraries=services"></script>
 <script>
