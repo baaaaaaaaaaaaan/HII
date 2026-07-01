@@ -32427,6 +32427,7 @@ function calculateFare() {
     lastResult.q20 = q20;
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
+    // amt는 이미 isRoundDetail 처리된 calcAmt 그대로 저장 (이중 round 제거)
     lastResult.amt40 = calcAmt40;
     lastResult.amt20 = calcAmt20;
 
@@ -32441,9 +32442,12 @@ function calculateFare() {
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
 
-    // 5. 수익(마진) 금액 및 [수정 사항 1] 마진율 산출
-    let rawMargin40 = isRoundQuote ? round1000(q40 - f40t) : Math.round(q40 - f40t);
-    let rawMargin20 = isRoundQuote ? round1000(q20 - f20t) : Math.round(q20 - f20t);
+    // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
+    // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
+    const base40t = isRoundFare ? f40t : Math.round(f40t);
+    const base20t = isRoundFare ? f20t : Math.round(f20t);
+    let rawMargin40 = isRoundQuote ? round1000(q40 - base40t) : Math.round(q40 - base40t);
+    let rawMargin20 = isRoundQuote ? round1000(q20 - base20t) : Math.round(q20 - base20t);
     
     let marginRate40 = q40 > 0 ? ((rawMargin40 / q40) * 100).toFixed(1) : "0.0";
     let marginRate20 = q20 > 0 ? ((rawMargin20 / q20) * 100).toFixed(1) : "0.0";
@@ -32460,17 +32464,27 @@ function copyQuoteText() {
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
+
+    // 복사 시점에 화면에 표시된 q40/q20 기준으로 실제 할증액 재계산 (사사오입 조합 불일치 방지)
+    const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
+    const rawMarginStandard40 = currentItem.p40s - currentItem.p40t;
+    const rawMarginStandard20 = currentItem.p20s - currentItem.p20t;
+    const baseQuote40 = currentItem.p40s - (rawMarginStandard40 * discount);
+    const baseQuote20 = currentItem.p20s - (rawMarginStandard20 * discount);
+    const displayAmt40 = lastResult.q40 - Math.round(baseQuote40);
+    const displayAmt20 = lastResult.q20 - Math.round(baseQuote20);
+
     let text = `[ 운임 견적 안내 ]
 ■ 목적지: ${fullAddr}
 
 ■ 20FT 운임: ${lastResult.q20.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge && lastResult.amt20 > 0) {
-        text += `\n▶ 할증(${lastResult.r20}%): ${lastResult.amt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
+    if (lastResult.hasSurcharge && displayAmt20 > 0) {
+        text += `\n▶ 할증(${lastResult.r20}%): ${displayAmt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
     }
 
     text += `\n\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge && lastResult.amt40 > 0) {
-        text += `\n▶ 할증(${lastResult.r40}%): ${lastResult.amt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
+    if (lastResult.hasSurcharge && displayAmt40 > 0) {
+        text += `\n▶ 할증(${lastResult.r40}%): ${displayAmt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
     }
 
     text += `\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} 기준)`;
