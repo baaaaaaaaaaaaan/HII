@@ -32309,8 +32309,8 @@ function calculateFare() {
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
     const overLen = parseFloat(document.getElementById('overLength').value) || 0;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-    const p40WeightRate = weight > 23 ? (Math.floor(weight - 23) + 1) * 0.1 : 0;
-    const p20WeightRate = weight > 20 ? (Math.floor(weight - 20) + 1) * 0.1 : 0;
+    const p40WeightRate = weight > 23 ? Math.ceil(weight - 23) * 0.1 : 0;
+    const p20WeightRate = weight > 20 ? Math.ceil(weight - 20) * 0.1 : 0;
     const oversizeRate = overLen > 0 ? Math.ceil(overLen / 10) * 0.1 : 0;
     // 복사용을 위해 원본 고시 운수사간 운임 보관
     currentCarrierBase.b40 = currentItem.p40b;
