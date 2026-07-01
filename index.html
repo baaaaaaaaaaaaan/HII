@@ -32402,14 +32402,7 @@ function calculateFare() {
         uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${textPct} 적용)`);
         copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
-    if (res40.items.length === 0) {
-        calcAmt40 = Math.round(baseQuote40 * res40.total);
-        if (isRoundDetail) calcAmt40 = round1000(calcAmt40);
-    }
-    if (res20.items.length === 0) {
-        calcAmt20 = Math.round(baseQuote20 * res20.total);
-        if (isRoundDetail) calcAmt20 = round1000(calcAmt20);
-    }
+    // items가 없으면 calcAmt는 이미 0이므로 별도 처리 불필요 (중복 블록 제거)
 
     // 4. 최종 화주 청구액 결정 (견적가 + 견적가 기준 산출된 할증액 합산)
     let q40 = baseQuote40 + calcAmt40;
@@ -32427,7 +32420,6 @@ function calculateFare() {
     lastResult.q20 = q20;
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
-    // amt는 이미 isRoundDetail 처리된 calcAmt 그대로 저장 (이중 round 제거)
     lastResult.amt40 = calcAmt40;
     lastResult.amt20 = calcAmt20;
 
@@ -32436,8 +32428,12 @@ function calculateFare() {
     
     lastResult.listForCopy40 = copyDetails40.join('\n') || '';
     lastResult.listForCopy20 = copyDetails20.join('\n') || '';
-    document.getElementById('tableR40').innerText = `${lastResult.r40}% (+${lastResult.amt40.toLocaleString()}원)`;
-    document.getElementById('tableR20').innerText = `${lastResult.r20}% (+${lastResult.amt20.toLocaleString()}원)`;
+
+    // tableR: 실제 계산된 amt 기준으로 실효 할증률 역산해서 표시 (rate 기반 r40과 금액 기반 amt가 사사오입으로 미세 불일치하는 문제 방지)
+    const displayR40 = baseQuote40 > 0 ? (calcAmt40 / Math.round(baseQuote40) * 100).toFixed(1) : lastResult.r40;
+    const displayR20 = baseQuote20 > 0 ? (calcAmt20 / Math.round(baseQuote20) * 100).toFixed(1) : lastResult.r20;
+    document.getElementById('tableR40').innerText = calcAmt40 > 0 ? `${displayR40}% (+${calcAmt40.toLocaleString()}원)` : `0% (+0원)`;
+    document.getElementById('tableR20').innerText = calcAmt20 > 0 ? `${displayR20}% (+${calcAmt20.toLocaleString()}원)` : `0% (+0원)`;
     
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
