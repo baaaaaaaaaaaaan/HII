@@ -32460,8 +32460,10 @@ function copyQuoteText() {
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
+    const originName = document.getElementById('selectedText').innerText;
 
     let text = `[ 운임 견적 안내 ]
+■ 출발기점: ${originName}
 ■ 목적지: ${fullAddr}
 
 ■ 20FT 운임: ${lastResult.q20.toLocaleString()} 원`;
@@ -32469,7 +32471,7 @@ function copyQuoteText() {
         text += `\n▶ 할증(${lastResult.r20}%): ${lastResult.amt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
     }
 
-    text += `\n\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
+    text += `\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
     if (lastResult.hasSurcharge && lastResult.amt40 > 0) {
         text += `\n▶ 할증(${lastResult.r40}%): ${lastResult.amt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
     }
@@ -32505,7 +32507,10 @@ function copyCarrierFareText() {
         carrier20 = Math.round(carrier20);
     }
 
+    const originName = document.getElementById('selectedText').innerText;
+
     let text = `[ 운수사 거래 운임 안내 ]
+■ 출발기점: ${originName}
 ■ 목적지: ${fullAddr}
 
 ■ 20FT 운임: ${carrier20.toLocaleString()} 원`;
