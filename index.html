@@ -32129,6 +32129,12 @@ function onSearchInput(val) {
 
             if (merged.length === 0) {
                 listEl.innerHTML = '<div class="kakao-suggest-empty">검색 결과가 없습니다</div>';
+                // Kakao 결과 없으면 로컬 DB에서 직접 주소 매칭 시도
+                const localMatches = searchLocalDB(keyword);
+                if (localMatches.length > 0) {
+                    renderKakaoSuggestions(localMatches);
+                    return;
+                }
                 listEl.classList.add('open');
                 return;
             }
@@ -32184,6 +32190,12 @@ function selectKakaoSuggestion(idx) {
     const listEl = document.getElementById('kakaoSuggestList');
     listEl.classList.remove('open');
 
+    // 로컬 DB 직접 매칭 결과 (_dbRow 보유)
+    if (item._dbRow) {
+        applyMatchResult(item._dbRow);
+        return;
+    }
+
     const fallbackAddress = item.address_name || item.road_address_name || '';
     const geocoder = getKakaoGeocoder();
 
@@ -32223,6 +32235,54 @@ function applyMatchResult(matched) {
         document.getElementById('resultBox').style.display = 'none';
         showKakaoMatchNotice(false);
     }
+}
+
+// 입력 텍스트에서 직접 DB 매칭 (Kakao API 실패 시 폴백)
+function searchLocalDB(text) {
+    const db = getDatabase()[currentType] || [];
+    const t = text.replace(/\s+/g, '');
+
+    // 1) 입력에서 읍/면/동 토큰 추출
+    const eTokens = text.match(/[가-힣]+(?:읍|면|동|가)/g) || [];
+    // 2) 입력에서 시/군/구 토큰 추출
+    const gTokens = text.match(/[가-힣]+(?:시|군|구)/g) || [];
+
+    if (eTokens.length === 0 && gTokens.length === 0) return [];
+
+    const results = [];
+    const seen = new Set();
+
+    for (const row of db) {
+        const key = `${row.s}-${row.g || ''}-${row.e}`;
+        if (seen.has(key)) continue;
+
+        const rowE = (row.e || '').replace(/\s/g, '');
+        const rowG = (row.g || '').replace(/\s/g, '');
+        const rowS = (row.s || '').replace(/\s/g, '');
+
+        // 읍면동 매칭
+        const eMatch = eTokens.some(t => rowE.includes(t) || t.includes(rowE));
+        // 시군구 매칭
+        const gMatch = gTokens.length === 0 || gTokens.some(t => rowG.includes(t) || t.includes(rowG));
+        // 시도도 텍스트에 있으면 확인
+        const sMatch = !text.match(/[가-힣]+(도|특별시|광역시|특별자치시|특별자치도)/) ||
+            text.includes(rowS.slice(0, 2));
+
+        if (eMatch && gMatch && sMatch) {
+            seen.add(key);
+            const label = [row.s, row.g, row.e].filter(Boolean).join(' ');
+            results.push({
+                place_name: label,
+                address_name: label,
+                road_address_name: text, // 원래 입력 표시
+                x: null, y: null,
+                _isAddress: true,
+                _dbRow: row  // DB row 직접 보유
+            });
+            if (results.length >= 6) break;
+        }
+    }
+    return results;
 }
 
 // 행정구역명(시/도, 시/군/구, 읍/면/동)으로 정확하게 DB 매칭
