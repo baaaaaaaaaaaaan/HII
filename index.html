@@ -32098,18 +32098,62 @@ function onSearchInput(val) {
 
     kakaoDebounceTimer = setTimeout(() => {
         const places = getKakaoPlaces();
+        const geocoder = getKakaoGeocoder();
         if (!places) {
             listEl.classList.remove('open');
             return;
         }
-        places.keywordSearch(keyword, function(data, status) {
-            if (status !== kakao.maps.services.Status.OK || !data || data.length === 0) {
+
+        let keywordResults = [];
+        let addressResults = [];
+        let doneCount = 0;
+
+        function mergeAndRender() {
+            doneCount++;
+            if (doneCount < 2) return; // 둘 다 끝날 때까지 대기
+
+            // 주소검색 결과를 장소 형태로 변환 (중복 제거)
+            const keywordAddrs = new Set(keywordResults.map(r => r.address_name));
+            const addrConverted = addressResults
+                .filter(r => !keywordAddrs.has(r.address_name))
+                .map(r => ({
+                    place_name: r.address_name,
+                    address_name: r.address_name,
+                    road_address_name: r.road_address ? r.road_address.address_name : '',
+                    x: r.x,
+                    y: r.y,
+                    _isAddress: true
+                }));
+
+            const merged = [...keywordResults, ...addrConverted].slice(0, 10);
+
+            if (merged.length === 0) {
                 listEl.innerHTML = '<div class="kakao-suggest-empty">검색 결과가 없습니다</div>';
                 listEl.classList.add('open');
                 return;
             }
-            renderKakaoSuggestions(data.slice(0, 8));
+            renderKakaoSuggestions(merged);
+        }
+
+        // 1) 장소명 검색
+        places.keywordSearch(keyword, function(data, status) {
+            if (status === kakao.maps.services.Status.OK && data && data.length > 0) {
+                keywordResults = data.slice(0, 7);
+            }
+            mergeAndRender();
         });
+
+        // 2) 주소 검색 (도로명/지번 모두)
+        if (geocoder) {
+            geocoder.addressSearch(keyword, function(data, status) {
+                if (status === kakao.maps.services.Status.OK && data && data.length > 0) {
+                    addressResults = data.slice(0, 5);
+                }
+                mergeAndRender();
+            });
+        } else {
+            mergeAndRender(); // geocoder 없으면 주소검색 스킵
+        }
     }, 250);
 }
 
@@ -32132,7 +32176,10 @@ function selectKakaoSuggestion(idx) {
     if (!item) return;
 
     const input = document.getElementById('mainSearchInput');
-    input.value = item.place_name;
+    // 주소검색 결과이면 도로명주소를 우선 표시
+    input.value = item._isAddress
+        ? (item.road_address_name || item.place_name)
+        : item.place_name;
 
     const listEl = document.getElementById('kakaoSuggestList');
     listEl.classList.remove('open');
