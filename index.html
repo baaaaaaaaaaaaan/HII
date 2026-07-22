@@ -31996,17 +31996,68 @@ const database2 = {
 let currentType = 'pt';
 let currentEra = 1; // 1=현행, 2=8월1일~
 
+// 탭별 상태 저장소
+const eraState = {
+    1: { type: 'pt', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null, isRoundFare: false, isRoundQuote: false, isRoundDetail: false },
+    2: { type: 'pt2', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null, isRoundFare: false, isRoundQuote: false, isRoundDetail: false }
+};
+
+function saveEraState(era) {
+    const s = eraState[era];
+    s.type = currentType;
+    s.item = currentItem;
+    s.searchVal = document.getElementById('mainSearchInput')?.value || '';
+    s.lastResult = Object.assign({}, lastResult);
+    s.isRoundFare = isRoundFare;
+    s.isRoundQuote = isRoundQuote;
+    s.isRoundDetail = isRoundDetail;
+    // 드롭다운 선택 텍스트
+    const wrapper = document.querySelector('.selected-wrapper span');
+    if (wrapper) s.originLabel = wrapper.innerText;
+}
+
+function restoreEraState(era) {
+    const s = eraState[era];
+    currentType = s.type;
+    currentItem = s.item;
+    isRoundFare = s.isRoundFare;
+    isRoundQuote = s.isRoundQuote;
+    isRoundDetail = s.isRoundDetail;
+    if (s.lastResult) Object.assign(lastResult, s.lastResult);
+
+    // 드롭다운 텍스트 복원
+    const wrapper = document.querySelector('.selected-wrapper span');
+    if (wrapper) {
+        wrapper.innerText = s.originLabel;
+        wrapper.className = 'dropdown-item c-' + s.type;
+        wrapper.style.padding = '0'; wrapper.style.border = 'none'; wrapper.style.margin = '0';
+    }
+
+    // 검색창 복원
+    const input = document.getElementById('mainSearchInput');
+    if (input) {
+        input.value = s.searchVal;
+        input.placeholder = meta[s.type] || '';
+    }
+
+    // 결과 복원
+    if (s.item) {
+        calculateFare();
+    } else {
+        document.getElementById('resultBox').style.display = 'none';
+    }
+}
+
 function switchEra(era) {
+    if (era === currentEra) return;
+    saveEraState(currentEra);
     currentEra = era;
     document.getElementById('tabEra1').classList.toggle('active', era === 1);
     document.getElementById('tabEra2').classList.toggle('active', era === 2);
     document.getElementById('dropdownEra1').style.display = era === 1 ? '' : 'none';
     document.getElementById('dropdownEra2').style.display = era === 2 ? '' : 'none';
-
-    // 해당 시대의 기본 출발지로 초기화
-    const defaultType = era === 1 ? 'pt' : 'pt2';
-    const defaultLabel = '평택항 기점';
-    selectOrigin(defaultType, defaultLabel);
+    document.getElementById('kakaoSuggestList').classList.remove('open');
+    restoreEraState(era);
 }
 
 function getDatabase() {
@@ -32028,6 +32079,7 @@ function toggleDropdown() {
 function selectOrigin(type, text) {
     currentType = type;
     currentItem = null;
+    eraState[currentEra].originLabel = text; // 탭 상태에도 반영
     const wrapper = document.querySelector('.selected-wrapper span');
     wrapper.innerText = text;
     wrapper.className = 'dropdown-item c-' + type;
