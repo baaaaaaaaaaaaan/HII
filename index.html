@@ -32632,12 +32632,17 @@ function calculateFare() {
     document.getElementById('p20b').innerText = fmt(f20b);
     document.getElementById('p20s').innerText = fmt(f20s);
 
-    // 2. 화주 제출용 기본 견적가 산출 (마진 기준은 무조건 쉐어하기 전 원본 마진 금액 기준)
-    const rawMarginStandard40 = currentItem.p40s - currentItem.p40t;
-    const rawMarginStandard20 = currentItem.p20s - currentItem.p20t;
-    
-    const baseQuote40 = currentItem.p40s - (rawMarginStandard40 * discount);
-    const baseQuote20 = currentItem.p20s - (rawMarginStandard20 * discount);
+    // 2. 화주 제출용 기본 견적가 산출 (고시운임 사사오입 ON이면 사사오입된 값 기준으로 계산)
+    const base40s = isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s;
+    const base40t = isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t;
+    const base20s = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
+    const base20t = isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t;
+
+    const rawMarginStandard40 = base40s - base40t;
+    const rawMarginStandard20 = base20s - base20t;
+
+    const baseQuote40 = base40s - (rawMarginStandard40 * discount);
+    const baseQuote20 = base20s - (rawMarginStandard20 * discount);
 
     // 3. 화주 제출용 견적가 가격을 기준(Base)으로 할증 계산 연동
     let calcAmt40 = 0;
