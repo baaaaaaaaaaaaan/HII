@@ -254,6 +254,12 @@
             margin-top: 6px; }
         .copy-btn.carrier-btn:hover { background: #1d4ed8;
         }
+        .copy-btn-row { display: flex; gap: 8px; margin-top: 6px; }
+        .copy-btn-row .copy-btn { margin-top: 0; font-size: 0.82rem; padding: 9px 0; }
+        .copy-btn-row .copy-btn.ft-btn { background: #0f4c8a; }
+        .copy-btn-row .copy-btn.ft-btn:hover { background: #0c3d70; }
+        .copy-btn-row .copy-btn.ft-carrier-btn { background: #1d4ed8; }
+        .copy-btn-row .copy-btn.ft-carrier-btn:hover { background: #1a44c0; }
         
         .detail-table-title { font-size: 0.85rem;
             font-weight: 700; color: #4c1d95; margin: 16px 0 6px 2px; display: flex; align-items: center; gap: 4px;
@@ -429,8 +435,16 @@
                     <div id="m40" class="margin-badge"></div>
                 </div>
             </div>
-            <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()">📋 견적 내용 복사</button>
-            <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()">🚚 운수사 거래용 복사</button>
+            <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()">📋 견적 복사 (20FT + 40FT)</button>
+            <div class="copy-btn-row">
+                <button class="copy-btn ft-btn" id="copyBtn20" onclick="copyQuoteText('20')">20FT 복사</button>
+                <button class="copy-btn ft-btn" id="copyBtn40" onclick="copyQuoteText('40')">40FT 복사</button>
+            </div>
+            <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()">🚚 운수사 거래용 복사 (20FT + 40FT)</button>
+            <div class="copy-btn-row">
+                <button class="copy-btn ft-carrier-btn" id="copyCarrierBtn20" onclick="copyCarrierFareText('20')">20FT 복사</button>
+                <button class="copy-btn ft-carrier-btn" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')">40FT 복사</button>
+            </div>
         </div>
 
         <div class="detail-table-title">
@@ -32711,20 +32725,20 @@ function calculateFare() {
     document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)} (마진율: ${marginRate20}%)`;
 }
 
-function copyQuoteText() {
+function copyQuoteText(ft) {
     if (!currentItem) return;
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const originName = document.getElementById('selectedText').innerText;
     const hasSurcharge = lastResult.hasSurcharge;
 
-    let line20, line40;
-    if (hasSurcharge && lastResult.amt20 > 0) {
-        line20 = `20FT │ 기본 ${lastResult.base20.toLocaleString()} + 할증 ${lastResult.amt20.toLocaleString()} = ${lastResult.q20.toLocaleString()}원`;
-        line40 = `40FT │ 기본 ${lastResult.base40.toLocaleString()} + 할증 ${lastResult.amt40.toLocaleString()} = ${lastResult.q40.toLocaleString()}원`;
-    } else {
-        line20 = `20FT │ ${lastResult.q20.toLocaleString()} 원`;
-        line40 = `40FT │ ${lastResult.q40.toLocaleString()} 원`;
+    function fareBlock(ftType) {
+        const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
+        const amt  = ftType === '20' ? lastResult.amt20  : lastResult.amt40;
+        const q    = ftType === '20' ? lastResult.q20    : lastResult.q40;
+        if (hasSurcharge && amt > 0)
+            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
+        return `${ftType}FT │ ${q.toLocaleString()} 원`;
     }
 
     function parseItem(row) {
@@ -32733,29 +32747,37 @@ function copyQuoteText() {
     }
     function displayLabel(item) {
         const origPct = item.label.match(/\((\d+%)\)$/);
-        if (origPct && origPct[1] !== item.applied) {
+        if (origPct && origPct[1] !== item.applied)
             return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
-        }
         return item.label;
     }
+
+    // 운임 라인
+    let fareLine;
+    if (!ft) fareLine = fareBlock('20') + '\n' + fareBlock('40');
+    else fareLine = fareBlock(ft);
 
     let text = `[ 운임 견적 안내 ]
 ▶ 출발  ${originName}
 ◆ 도착  ${fullAddr}
 
-${line20}
-${line40}`;
+${fareLine}`;
 
+    // 할증 내역
     if (hasSurcharge && lastResult.listForCopy40) {
         const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
         const items20 = lastResult.listForCopy20.split('\n').filter(Boolean);
-
         text += `\n\n[ 할증 내역 ]`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
-            if (p40) {
+            if (!p40) return;
+            if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+            } else if (ft === '20') {
+                text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
+            } else {
+                text += `\n- ${displayLabel(p40)} :  +${p40.amt}원`;
             }
         });
         text += `\n`;
@@ -32768,15 +32790,17 @@ ${line40}`;
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
 
+    const btnId = ft ? `copyBtn${ft}` : 'copyBtn';
+    const origLabel = ft ? `${ft}FT 복사` : '📋 견적 복사 (20FT + 40FT)';
     navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('copyBtn');
+        const btn = document.getElementById(btnId);
         btn.innerText = "✅ 복사 완료!";
-        setTimeout(() => { btn.innerText = "📋 견적 내용 복사"; }, 1500);
+        setTimeout(() => { btn.innerText = origLabel; }, 1500);
     });
 }
 
 // 운수사간 거래 고시 운임 복사 함수
-function copyCarrierFareText() {
+function copyCarrierFareText(ft) {
     if (!currentItem) return;
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
@@ -32798,13 +32822,13 @@ function copyCarrierFareText() {
     const amt40 = carrier40 - base40;
     const amt20 = carrier20 - base20;
 
-    let line20, line40;
-    if (hasSurcharge && amt20 > 0) {
-        line20 = `20FT │ 기본 ${base20.toLocaleString()} + 할증 ${amt20.toLocaleString()} = ${carrier20.toLocaleString()}원`;
-        line40 = `40FT │ 기본 ${base40.toLocaleString()} + 할증 ${amt40.toLocaleString()} = ${carrier40.toLocaleString()}원`;
-    } else {
-        line20 = `20FT │ ${carrier20.toLocaleString()} 원`;
-        line40 = `40FT │ ${carrier40.toLocaleString()} 원`;
+    function fareBlock(ftType) {
+        const base = ftType === '20' ? base20 : base40;
+        const amt  = ftType === '20' ? amt20  : amt40;
+        const q    = ftType === '20' ? carrier20 : carrier40;
+        if (hasSurcharge && amt > 0)
+            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
+        return `${ftType}FT │ ${q.toLocaleString()} 원`;
     }
 
     function parseItem(row) {
@@ -32813,18 +32837,20 @@ function copyCarrierFareText() {
     }
     function displayLabel(item) {
         const origPct = item.label.match(/\((\d+%)\)$/);
-        if (origPct && origPct[1] !== item.applied) {
+        if (origPct && origPct[1] !== item.applied)
             return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
-        }
         return item.label;
     }
+
+    let fareLine;
+    if (!ft) fareLine = fareBlock('20') + '\n' + fareBlock('40');
+    else fareLine = fareBlock(ft);
 
     let text = `[ 운수사 거래 운임 안내 ]
 ▶ 출발  ${originName}
 ◆ 도착  ${fullAddr}
 
-${line20}
-${line40}`;
+${fareLine}`;
 
     if (hasSurcharge && lastResult.listForCopy40) {
         const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
@@ -32833,8 +32859,13 @@ ${line40}`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
-            if (p40) {
+            if (!p40) return;
+            if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+            } else if (ft === '20') {
+                text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
+            } else {
+                text += `\n- ${displayLabel(p40)} :  +${p40.amt}원`;
             }
         });
         text += `\n`;
@@ -32847,10 +32878,12 @@ ${line40}`;
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
 
+    const btnId = ft ? `copyCarrierBtn${ft}` : 'copyCarrierBtn';
+    const origLabel = ft ? `${ft}FT 복사` : '🚚 운수사 거래용 복사 (20FT + 40FT)';
     navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('copyCarrierBtn');
+        const btn = document.getElementById(btnId);
         btn.innerText = "✅ 복사 완료!";
-        setTimeout(() => { btn.innerText = "🚚 운수사 거래용 복사"; }, 1500);
+        setTimeout(() => { btn.innerText = origLabel; }, 1500);
     });
 }
 
