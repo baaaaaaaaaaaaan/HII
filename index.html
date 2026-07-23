@@ -32610,6 +32610,7 @@ function calculateFare() {
     
     const fmt = (v) => Math.round(v).toLocaleString() + "원";
     const round1000 = (val) => Math.round(val / 1000) * 1000;
+    const round10 = (val) => Math.round(val / 10) * 10;
     // 1. 고시운임 계산 (상단 탭 출력용)
     let f40t = currentItem.p40t * (1 + res40.total);
     let f40b = currentItem.p40b * (1 + res40.total);
@@ -32645,7 +32646,7 @@ function calculateFare() {
     res40.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
         let itemAmt = Math.round(baseQuote40 * applyRate);
-        if (isRoundDetail) itemAmt = round1000(itemAmt);
+        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
         calcAmt40 += itemAmt;
         
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
@@ -32661,7 +32662,7 @@ function calculateFare() {
     res20.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
         let itemAmt = Math.round(baseQuote20 * applyRate);
-        if (isRoundDetail) itemAmt = round1000(itemAmt);
+        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
         calcAmt20 += itemAmt;
         
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
@@ -32692,6 +32693,9 @@ function calculateFare() {
     lastResult.base20 = isRoundQuote ? round1000(baseQuote20) : Math.round(baseQuote20);
     lastResult.amt40  = isRoundQuote ? round1000(calcAmt40)   : Math.round(calcAmt40);
     lastResult.amt20  = isRoundQuote ? round1000(calcAmt20)   : Math.round(calcAmt20);
+    // 복사용: isRoundDetail 설정만 반영한 순수 할증 합계 (isRoundQuote 미적용)
+    lastResult.rawAmt40 = Math.round(calcAmt40);
+    lastResult.rawAmt20 = Math.round(calcAmt20);
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
 
@@ -32734,8 +32738,8 @@ function copyQuoteText(ft) {
 
     function fareBlock(ftType) {
         const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
-        const amt  = ftType === '20' ? lastResult.amt20  : lastResult.amt40;
-        const q    = ftType === '20' ? lastResult.q20    : lastResult.q40;
+        const amt  = ftType === '20' ? lastResult.rawAmt20 : lastResult.rawAmt40;
+        const q    = ftType === '20' ? lastResult.q20 : lastResult.q40;
         if (hasSurcharge && amt > 0)
             return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
         return `${ftType}FT │ ${q.toLocaleString()} 원`;
@@ -32824,8 +32828,8 @@ function copyCarrierFareText(ft) {
 
     function fareBlock(ftType) {
         const base = ftType === '20' ? base20 : base40;
-        const amt  = ftType === '20' ? amt20  : amt40;
         const q    = ftType === '20' ? carrier20 : carrier40;
+        const amt  = q - base;  // 운수사는 base/q 모두 동일 기준이라 차이로 계산
         if (hasSurcharge && amt > 0)
             return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
         return `${ftType}FT │ ${q.toLocaleString()} 원`;
