@@ -435,15 +435,15 @@
                     <div id="m40" class="margin-badge"></div>
                 </div>
             </div>
-            <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()">📋 견적 복사 (20FT + 40FT)</button>
-            <div class="copy-btn-row">
-                <button class="copy-btn ft-btn" id="copyBtn20" onclick="copyQuoteText('20')">20FT 복사</button>
-                <button class="copy-btn ft-btn" id="copyBtn40" onclick="copyQuoteText('40')">40FT 복사</button>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="copy-btn" id="copyBtn" onclick="copyQuoteText()" style="margin-top:0; flex:1;">📋 견적 내용 복사</button>
+                <button class="copy-btn" id="copyBtn20" onclick="copyQuoteText('20')" style="margin-top:0; padding:12px 14px; width:auto;">20FT</button>
+                <button class="copy-btn" id="copyBtn40" onclick="copyQuoteText('40')" style="margin-top:0; padding:12px 14px; width:auto;">40FT</button>
             </div>
-            <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()">🚚 운수사 거래용 복사 (20FT + 40FT)</button>
-            <div class="copy-btn-row">
-                <button class="copy-btn ft-carrier-btn" id="copyCarrierBtn20" onclick="copyCarrierFareText('20')">20FT 복사</button>
-                <button class="copy-btn ft-carrier-btn" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')">40FT 복사</button>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()" style="margin-top:0; flex:1;">🚚 운수사 거래용 복사</button>
+                <button class="copy-btn carrier-btn" id="copyCarrierBtn20" onclick="copyCarrierFareText('20')" style="margin-top:0; padding:12px 14px; width:auto;">20FT</button>
+                <button class="copy-btn carrier-btn" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')" style="margin-top:0; padding:12px 14px; width:auto;">40FT</button>
             </div>
         </div>
 
@@ -32791,7 +32791,7 @@ ${fareLine}`;
     }
 
     const btnId = ft ? `copyBtn${ft}` : 'copyBtn';
-    const origLabel = ft ? `${ft}FT 복사` : '📋 견적 복사 (20FT + 40FT)';
+    const origLabel = ft ? `${ft}FT` : '📋 견적 내용 복사';
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById(btnId);
         btn.innerText = "✅ 복사 완료!";
@@ -32879,7 +32879,7 @@ ${fareLine}`;
     }
 
     const btnId = ft ? `copyCarrierBtn${ft}` : 'copyCarrierBtn';
-    const origLabel = ft ? `${ft}FT 복사` : '🚚 운수사 거래용 복사 (20FT + 40FT)';
+    const origLabel = ft ? `${ft}FT` : '🚚 운수사 거래용 복사';
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById(btnId);
         btn.innerText = "✅ 복사 완료!";
