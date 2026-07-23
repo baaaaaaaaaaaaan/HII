@@ -31998,8 +31998,8 @@ let currentEra = 1; // 1=현행, 2=8월1일~
 
 // 탭별 상태 저장소
 const eraState = {
-    1: { type: 'pt', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null, isRoundFare: false, isRoundQuote: false, isRoundDetail: false },
-    2: { type: 'pt2', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null, isRoundFare: false, isRoundQuote: false, isRoundDetail: false }
+    1: { type: 'pt', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null },
+    2: { type: 'pt2', originLabel: '평택항 기점', item: null, searchVal: '', lastResult: null }
 };
 
 function saveEraState(era) {
@@ -32008,9 +32008,6 @@ function saveEraState(era) {
     s.item = currentItem;
     s.searchVal = document.getElementById('mainSearchInput')?.value || '';
     s.lastResult = Object.assign({}, lastResult);
-    s.isRoundFare = isRoundFare;
-    s.isRoundQuote = isRoundQuote;
-    s.isRoundDetail = isRoundDetail;
     // 드롭다운 선택 텍스트
     const wrapper = document.querySelector('.selected-wrapper span');
     if (wrapper) s.originLabel = wrapper.innerText;
@@ -32020,9 +32017,6 @@ function restoreEraState(era) {
     const s = eraState[era];
     currentType = s.type;
     currentItem = s.item;
-    isRoundFare = s.isRoundFare;
-    isRoundQuote = s.isRoundQuote;
-    isRoundDetail = s.isRoundDetail;
     if (s.lastResult) Object.assign(lastResult, s.lastResult);
 
     // 드롭다운 텍스트 복원
