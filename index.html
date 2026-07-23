@@ -32632,75 +32632,63 @@ function calculateFare() {
     document.getElementById('p20b').innerText = fmt(f20b);
     document.getElementById('p20s').innerText = fmt(f20s);
 
-    // 2. 화주 제출용 기본 견적가 산출 (고시운임 사사오입 ON이면 사사오입된 값 기준으로 계산)
-    const qs40s = isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s;
-    const qs40t = isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t;
-    const qs20s = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
-    const qs20t = isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t;
+    // 2. 할증 적용된 고시운임 기준으로 견적가 산출
+    // fq = 할증 반영 + 사사오입 적용된 최종 고시운임 (화면 표시값과 동일)
+    const fq40s = isRoundFare ? round1000(currentItem.p40s * (1 + res40.total)) : currentItem.p40s * (1 + res40.total);
+    const fq40t = isRoundFare ? round1000(currentItem.p40t * (1 + res40.total)) : currentItem.p40t * (1 + res40.total);
+    const fq20s = isRoundFare ? round1000(currentItem.p20s * (1 + res20.total)) : currentItem.p20s * (1 + res20.total);
+    const fq20t = isRoundFare ? round1000(currentItem.p20t * (1 + res20.total)) : currentItem.p20t * (1 + res20.total);
 
-    const rawMarginStandard40 = qs40s - qs40t;
-    const rawMarginStandard20 = qs20s - qs20t;
+    // 마진 = 청구 - 하불, 쉐어율만큼 할인
+    const margin40 = fq40s - fq40t;
+    const margin20 = fq20s - fq20t;
 
-    const baseQuote40 = qs40s - (rawMarginStandard40 * discount);
-    const baseQuote20 = qs20s - (rawMarginStandard20 * discount);
+    let q40 = fq40s - (margin40 * discount);
+    let q20 = fq20s - (margin20 * discount);
 
-    // 3. 화주 제출용 견적가 가격을 기준(Base)으로 할증 계산 연동
-    let calcAmt40 = 0;
-    let uiDetails40 = [];
-    let copyDetails40 = [];
+    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
+    else { q40 = Math.round(q40); q20 = Math.round(q20); }
+
+    // 할증 상세내역 (UI/복사용) - 쉐어 적용된 기준가 기준으로 각 항목 계산
+    const surchargeBase40 = (isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
+        - ((isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
+         - (isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t)) * discount;
+    const surchargeBase20 = (isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
+        - ((isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
+         - (isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t)) * discount;
+
+    let uiDetails40 = [], copyDetails40 = [], detailAmt40 = 0;
     res40.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(baseQuote40 * applyRate);
+        let itemAmt = Math.round(surchargeBase40 * applyRate);
         itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        calcAmt40 += itemAmt;
-        
+        detailAmt40 += itemAmt;
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-         
         uiDetails40.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
         copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
-    let calcAmt20 = 0;
-    let uiDetails20 = [];
-    let copyDetails20 = [];
+
+    let uiDetails20 = [], copyDetails20 = [], detailAmt20 = 0;
     res20.items.forEach((item, idx) => {
         const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(baseQuote20 * applyRate);
+        let itemAmt = Math.round(surchargeBase20 * applyRate);
         itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        calcAmt20 += itemAmt;
-        
+        detailAmt20 += itemAmt;
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        
         uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
         copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
     });
-    // items가 없으면 calcAmt는 이미 0이므로 별도 처리 불필요 (중복 블록 제거)
 
-    // 4. 최종 화주 청구액 결정 (견적가 + 견적가 기준 산출된 할증액 합산)
-    let q40 = baseQuote40 + calcAmt40;
-    let q20 = baseQuote20 + calcAmt20;
-    
-    if (isRoundQuote) {
-        q40 = round1000(q40);
-        q20 = round1000(q20);
-    } else {
-        q40 = Math.round(q40);
-        q20 = Math.round(q20);
-    }
-    
     lastResult.q40 = q40;
     lastResult.q20 = q20;
-    // 기본운임·할증액도 사사오입 설정에 맞춰 저장 (복사 텍스트에서 일관성 유지)
-    lastResult.base40 = isRoundQuote ? round1000(baseQuote40) : Math.round(baseQuote40);
-    lastResult.base20 = isRoundQuote ? round1000(baseQuote20) : Math.round(baseQuote20);
-    lastResult.amt40  = isRoundQuote ? round1000(calcAmt40)   : Math.round(calcAmt40);
-    lastResult.amt20  = isRoundQuote ? round1000(calcAmt20)   : Math.round(calcAmt20);
-    // 복사용: isRoundDetail 설정만 반영한 순수 할증 합계 (isRoundQuote 미적용)
-    lastResult.rawAmt40 = Math.round(calcAmt40);
-    lastResult.rawAmt20 = Math.round(calcAmt20);
+    lastResult.base40 = isRoundQuote ? round1000(fq40s - margin40 * discount) : Math.round(fq40s - margin40 * discount);
+    lastResult.base20 = isRoundQuote ? round1000(fq20s - margin20 * discount) : Math.round(fq20s - margin20 * discount);
+    lastResult.rawAmt40 = detailAmt40;
+    lastResult.rawAmt20 = detailAmt20;
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
 
@@ -32711,8 +32699,8 @@ function calculateFare() {
     lastResult.listForCopy20 = copyDetails20.join('\n') || '';
 
     // tableR: 실제 계산된 amt 기준으로 실효 할증률 역산해서 표시 (rate 기반 r40과 금액 기반 amt가 사사오입으로 미세 불일치하는 문제 방지)
-    document.getElementById('tableR40').innerText = calcAmt40 > 0 ? `${lastResult.r40}% (+${calcAmt40.toLocaleString()}원)` : `0% (+0원)`;
-    document.getElementById('tableR20').innerText = calcAmt20 > 0 ? `${lastResult.r20}% (+${calcAmt20.toLocaleString()}원)` : `0% (+0원)`;
+    document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`;
+    document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`;
     
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
