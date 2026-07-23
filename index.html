@@ -196,6 +196,9 @@
         }
         .round-toggle-btn.active { background: #3b82f6; border-color: #2563eb; color: white;
         }
+        .round-all-btn { width:100%; padding:8px; font-size:0.78rem; font-weight:700;
+            background:#f8fafc; border:2px solid #cbd5e1; border-radius:8px; color:#475569; cursor:pointer; margin-bottom:10px; }
+        .round-all-btn.active { background:#1d4ed8; border-color:#1d4ed8; color:white; }
 
         .fare-section { margin-bottom: 10px; background: #ffffff; padding: 10px; border-radius: 8px;
             border: 1px solid #cbd5e1; }
@@ -383,6 +386,8 @@
     <div id="resultBox" class="result-card">
         <div id="resAddr" class="res-addr-header">-</div>
         
+        <button type="button" id="btnRoundAll" class="round-all-btn" onclick="toggleRound('all')">전체 사사오입 OFF</button>
+
         <div class="fare-section">
             <div class="section-header-flex">
                 <span class="ft-badge ft-40">🟦 40FT 고시운임 정보</span>
@@ -32513,29 +32518,43 @@ window.addEventListener('click', function(e) {
 });
 
 function toggleRound(target) {
-    if (target === 'fare') {
+    if (target === 'all') {
+        // 셋 중 하나라도 OFF면 전체 ON, 모두 ON이면 전체 OFF
+        const allOn = isRoundFare && isRoundQuote && isRoundDetail;
+        isRoundFare = isRoundQuote = isRoundDetail = !allOn;
+        const allBtn = document.getElementById('btnRoundAll');
+        allBtn.innerText = isRoundFare ? '전체 사사오입 ON' : '전체 사사오입 OFF';
+        allBtn.classList.toggle('active', isRoundFare);
+        document.getElementById('btnRoundFare').innerText = isRoundFare ? '고시운임 사사오입 ON' : '고시운임 사사오입 OFF';
+        document.getElementById('btnRoundFare').classList.toggle('active', isRoundFare);
+        document.getElementById('btnRoundQuote').innerText = isRoundFare ? '견적가 사사오입 ON' : '견적가 사사오입 OFF';
+        document.getElementById('btnRoundQuote').classList.toggle('active', isRoundFare);
+        document.getElementById('btnRoundDetail').innerText = isRoundFare ? '상세금액 사사오입 ON' : '상세금액 사사오입 OFF';
+        document.getElementById('btnRoundDetail').classList.toggle('active', isRoundFare);
+    } else if (target === 'fare') {
         isRoundFare = !isRoundFare;
         const btn = document.getElementById('btnRoundFare');
-        if (isRoundFare) { btn.innerText = "고시운임 사사오입 ON"; btn.classList.add('active');
-        } 
-        else { btn.innerText = "고시운임 사사오입 OFF"; btn.classList.remove('active');
-        }
+        if (isRoundFare) { btn.innerText = "고시운임 사사오입 ON"; btn.classList.add('active'); }
+        else { btn.innerText = "고시운임 사사오입 OFF"; btn.classList.remove('active'); }
     } else if (target === 'quote') {
         isRoundQuote = !isRoundQuote;
         const btn = document.getElementById('btnRoundQuote');
-        if (isRoundQuote) { btn.innerText = "견적가 사사오입 ON"; btn.classList.add('active');
-        } 
-        else { btn.innerText = "견적가 사사오입 OFF"; btn.classList.remove('active');
-        }
+        if (isRoundQuote) { btn.innerText = "견적가 사사오입 ON"; btn.classList.add('active'); }
+        else { btn.innerText = "견적가 사사오입 OFF"; btn.classList.remove('active'); }
     } else if (target === 'detail') {
         isRoundDetail = !isRoundDetail;
         const btn = document.getElementById('btnRoundDetail');
-        if (isRoundDetail) { btn.innerText = "상세금액 사사오입 ON"; btn.classList.add('active');
-        } 
-        else { btn.innerText = "상세금액 사사오입 OFF"; btn.classList.remove('active');
-        }
+        if (isRoundDetail) { btn.innerText = "상세금액 사사오입 ON"; btn.classList.add('active'); }
+        else { btn.innerText = "상세금액 사사오입 OFF"; btn.classList.remove('active'); }
     }
-    calculateFare(); 
+    // 개별 버튼 변경 후 전체버튼 상태도 동기화
+    if (target !== 'all') {
+        const allOn = isRoundFare && isRoundQuote && isRoundDetail;
+        const allBtn = document.getElementById('btnRoundAll');
+        allBtn.innerText = allOn ? '전체 사사오입 ON' : '전체 사사오입 OFF';
+        allBtn.classList.toggle('active', allOn);
+    }
+    calculateFare();
 }
 
 function calculateFare() {
@@ -32654,10 +32673,13 @@ function calculateFare() {
     
     lastResult.q40 = q40;
     lastResult.q20 = q20;
+    // 기본운임·할증액도 사사오입 설정에 맞춰 저장 (복사 텍스트에서 일관성 유지)
+    lastResult.base40 = isRoundQuote ? round1000(baseQuote40) : Math.round(baseQuote40);
+    lastResult.base20 = isRoundQuote ? round1000(baseQuote20) : Math.round(baseQuote20);
+    lastResult.amt40  = isRoundQuote ? round1000(calcAmt40)   : Math.round(calcAmt40);
+    lastResult.amt20  = isRoundQuote ? round1000(calcAmt20)   : Math.round(calcAmt20);
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
-    lastResult.amt40 = calcAmt40;
-    lastResult.amt20 = calcAmt20;
 
     const textDetail40 = uiDetails40.join('<br>') || '선택된 할증 없음';
     const textDetail20 = uiDetails20.join('<br>') || '선택된 할증 없음';
@@ -32693,28 +32715,59 @@ function copyQuoteText() {
     if (!currentItem) return;
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
-    const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
     const originName = document.getElementById('selectedText').innerText;
+    const hasSurcharge = lastResult.hasSurcharge;
+
+    let line20, line40;
+    if (hasSurcharge && lastResult.amt20 > 0) {
+        line20 = `20FT │ 기본 ${lastResult.base20.toLocaleString()} + 할증 ${lastResult.amt20.toLocaleString()} = ${lastResult.q20.toLocaleString()}원`;
+        line40 = `40FT │ 기본 ${lastResult.base40.toLocaleString()} + 할증 ${lastResult.amt40.toLocaleString()} = ${lastResult.q40.toLocaleString()}원`;
+    } else {
+        line20 = `20FT │ ${lastResult.q20.toLocaleString()} 원`;
+        line40 = `40FT │ ${lastResult.q40.toLocaleString()} 원`;
+    }
+
+    function parseItem(row) {
+        const m = row.match(/▪\s*(.+\(\d+%\))\s*:\s*([\d,]+)원\s*\/\s*(\d+%)\s*반영/);
+        return m ? { label: m[1], amt: m[2], applied: m[3] } : null;
+    }
+    function displayLabel(item) {
+        const origPct = item.label.match(/\((\d+%)\)$/);
+        if (origPct && origPct[1] !== item.applied) {
+            return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
+        }
+        return item.label;
+    }
 
     let text = `[ 운임 견적 안내 ]
-■ 출발기점: ${originName}
-■ 목적지: ${fullAddr}
+▶ 출발  ${originName}
+◆ 도착  ${fullAddr}
 
-■ 20FT 운임: ${lastResult.q20.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge && lastResult.amt20 > 0) {
-        text += `\n▶ 할증(${lastResult.r20}%): ${lastResult.amt20.toLocaleString()}원\n${lastResult.listForCopy20}`;
+${line20}
+${line40}`;
+
+    if (hasSurcharge && lastResult.listForCopy40) {
+        const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
+        const items20 = lastResult.listForCopy20.split('\n').filter(Boolean);
+
+        text += `\n\n[ 할증 내역 ]`;
+        items40.forEach((row40, i) => {
+            const p40 = parseItem(row40);
+            const p20 = parseItem(items20[i] || '');
+            if (p40) {
+                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+            }
+        });
+        text += `\n`;
     }
 
-    text += `\n■ 40FT 운임: ${lastResult.q40.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge && lastResult.amt40 > 0) {
-        text += `\n▶ 할증(${lastResult.r40}%): ${lastResult.amt40.toLocaleString()}원\n${lastResult.listForCopy40}`;
-    }
+    const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
+    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel})`;
 
-    text += `\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} 기준)`;
     if (lastResult.isMultiSurcharge) {
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
-    
+
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById('copyBtn');
         btn.innerText = "✅ 복사 완료!";
@@ -32727,37 +32780,73 @@ function copyCarrierFareText() {
     if (!currentItem) return;
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
-    const surchargeLabel = lastResult.hasSurcharge ? '할증 포함' : '할증 미포함';
+    const hasSurcharge = lastResult.hasSurcharge;
     const round1000 = (val) => Math.round(val / 1000) * 1000;
-    // 할증이 계산된 최종 운수사 거래 운임 산출
-    let carrier40 = currentCarrierBase.b40 * (1 + (lastResult.r40 / 100));
-    let carrier20 = currentCarrierBase.b20 * (1 + (lastResult.r20 / 100));
-    // 고시운임 사사오입 옵션 연동
-    if (isRoundFare) {
-        carrier40 = round1000(carrier40);
-        carrier20 = round1000(carrier20);
-    } else {
-        carrier40 = Math.round(carrier40);
-        carrier20 = Math.round(carrier20);
-    }
-
     const originName = document.getElementById('selectedText').innerText;
 
+    let carrier40 = currentCarrierBase.b40 * (1 + (lastResult.r40 / 100));
+    let carrier20 = currentCarrierBase.b20 * (1 + (lastResult.r20 / 100));
+    let base40 = currentCarrierBase.b40;
+    let base20 = currentCarrierBase.b20;
+    if (isRoundFare) {
+        carrier40 = round1000(carrier40); carrier20 = round1000(carrier20);
+        base40 = round1000(base40); base20 = round1000(base20);
+    } else {
+        carrier40 = Math.round(carrier40); carrier20 = Math.round(carrier20);
+        base40 = Math.round(base40); base20 = Math.round(base20);
+    }
+    const amt40 = carrier40 - base40;
+    const amt20 = carrier20 - base20;
+
+    let line20, line40;
+    if (hasSurcharge && amt20 > 0) {
+        line20 = `20FT │ 기본 ${base20.toLocaleString()} + 할증 ${amt20.toLocaleString()} = ${carrier20.toLocaleString()}원`;
+        line40 = `40FT │ 기본 ${base40.toLocaleString()} + 할증 ${amt40.toLocaleString()} = ${carrier40.toLocaleString()}원`;
+    } else {
+        line20 = `20FT │ ${carrier20.toLocaleString()} 원`;
+        line40 = `40FT │ ${carrier40.toLocaleString()} 원`;
+    }
+
+    function parseItem(row) {
+        const m = row.match(/▪\s*(.+\(\d+%\))\s*:\s*([\d,]+)원\s*\/\s*(\d+%)\s*반영/);
+        return m ? { label: m[1], amt: m[2], applied: m[3] } : null;
+    }
+    function displayLabel(item) {
+        const origPct = item.label.match(/\((\d+%)\)$/);
+        if (origPct && origPct[1] !== item.applied) {
+            return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
+        }
+        return item.label;
+    }
+
     let text = `[ 운수사 거래 운임 안내 ]
-■ 출발기점: ${originName}
-■ 목적지: ${fullAddr}
+▶ 출발  ${originName}
+◆ 도착  ${fullAddr}
 
-■ 20FT 운임: ${carrier20.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge) {
-        text += `\n▶ 할증률: ${lastResult.r20}%`;
+${line20}
+${line40}`;
+
+    if (hasSurcharge && lastResult.listForCopy40) {
+        const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
+        const items20 = lastResult.listForCopy20.split('\n').filter(Boolean);
+        text += `\n\n[ 할증 내역 ]`;
+        items40.forEach((row40, i) => {
+            const p40 = parseItem(row40);
+            const p20 = parseItem(items20[i] || '');
+            if (p40) {
+                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+            }
+        });
+        text += `\n`;
     }
 
-    text += `\n\n■ 40FT 운임: ${carrier40.toLocaleString()} 원`;
-    if (lastResult.hasSurcharge) {
-        text += `\n▶ 할증률: ${lastResult.r40}%`;
+    const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
+    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel} / 운수사간 거래 기준)`;
+
+    if (lastResult.isMultiSurcharge) {
+        text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
 
-    text += `\n\n(${surchargeLabel} / 부가세 별도 / ${isOneWay} / 운수사간 거래 기준)`;
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.getElementById('copyCarrierBtn');
         btn.innerText = "✅ 복사 완료!";
