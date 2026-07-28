@@ -500,7 +500,7 @@
             </div>
         </div>
 
-        <div class="quote-section">
+        <div class="quote-section" id="quoteSection">
             <div class="quote-row" style="border:none; padding-bottom:0; margin-bottom:4px;">
                 <span>📊 화주 제출용 견적 설정</span>
                 <button type="button" id="btnRoundQuote" class="round-toggle-btn" onclick="toggleRound('quote')">견적가 사사오입 OFF</button>
@@ -525,7 +525,7 @@
                 <button class="copy-btn" id="copyBtn20" onclick="copyQuoteText('20')" style="margin-top:0; padding:12px 14px; width:auto;">20FT</button>
                 <button class="copy-btn" id="copyBtn40" onclick="copyQuoteText('40')" style="margin-top:0; padding:12px 14px; width:auto;">40FT</button>
             </div>
-            <div style="display:flex; gap:8px; margin-top:8px;">
+            <div id="carrierBtnWrap" style="display:flex; gap:8px; margin-top:8px;">
                 <button class="copy-btn carrier-btn" id="copyCarrierBtn" onclick="copyCarrierFareText()" style="margin-top:0; flex:1;">🚚 운수사 거래용 복사</button>
                 <button class="copy-btn carrier-btn" id="copyCarrierBtn20" onclick="copyCarrierFareText('20')" style="margin-top:0; padding:12px 14px; width:auto;">20FT</button>
                 <button class="copy-btn carrier-btn" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')" style="margin-top:0; padding:12px 14px; width:auto;">40FT</button>
@@ -32183,10 +32183,12 @@ function selectOrigin(type, text) {
     // 창고 모드 해제 시 기존 요소 복원
     if (type !== 'wh') {
         document.querySelectorAll('.fare-section').forEach(el => el.style.display = '');
-        ['quoteSection','detailSection'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = '';
-        });
+        document.querySelector('.detail-table-title')?.style && (document.querySelector('.detail-table-title').style.display = '');
+        document.querySelector('.detail-table')?.style && (document.querySelector('.detail-table').style.display = '');
+        const roundAllBtn = document.getElementById('btnRoundAll');
+        if (roundAllBtn) roundAllBtn.style.display = '';
+        const carrierWrap = document.getElementById('carrierBtnWrap');
+        if (carrierWrap) carrierWrap.style.display = '';
         const whCard = document.getElementById('whResultCard');
         if (whCard) whCard.remove();
     }
@@ -33818,16 +33820,20 @@ function showWhResult(w) {
     const mRate20 = ((w.m20 / w.c20) * 100).toFixed(1);
     const mRate40 = ((w.m40 / w.c40) * 100).toFixed(1);
 
+    // 창고 데이터를 표준 fare 필드로 매핑 → calculateFare() 재사용
+    currentItem = {
+        s: '창고운임', g: '', e: w.name, d: w.km,
+        p40t: w.h40, p40b: w.b40, p40s: w.c40,
+        p20t: w.h20, p20b: w.b20, p20s: w.c20
+    };
+
     const box = document.getElementById('resultBox');
     box.style.display = 'block';
-
-    // resAddr 재활용
     document.getElementById('resAddr').innerText = `🏭 ${w.name}${w.code ? ' (' + w.code + ')' : ''} · ${w.addr} · ${w.km}km`;
 
-    // 기존 운임 결과 영역에 창고운임 표 삽입
+    // 창고운임 카드 삽입
     const existingWh = document.getElementById('whResultCard');
     if (existingWh) existingWh.remove();
-
     const card = document.createElement('div');
     card.id = 'whResultCard';
     card.innerHTML = `
@@ -33847,12 +33853,12 @@ function showWhResult(w) {
                     <td style="padding:8px 10px; text-align:center; font-weight:600; color:#1e293b;">${fmt(w.c40)}</td>
                 </tr>
                 <tr style="background:#f8fafc; border-bottom:0.5px solid #f1f5f9;">
-                    <td style="padding:8px 10px; color:#475569;">차량하불(직작업)</td>
+                    <td style="padding:8px 10px; color:#475569;">차량하불(밥테일)</td>
                     <td style="padding:8px 10px; text-align:center; font-weight:500; color:#1e293b;">${fmt(w.h20)}</td>
                     <td style="padding:8px 10px; text-align:center; font-weight:500; color:#1e293b;">${fmt(w.h40)}</td>
                 </tr>
                 <tr style="border-bottom:0.5px solid #f1f5f9;">
-                    <td style="padding:8px 10px; color:#475569;">차량하불(밥테일)</td>
+                    <td style="padding:8px 10px; color:#475569;">차량하불(투입/회수)</td>
                     <td style="padding:8px 10px; text-align:center; font-weight:500; color:#1e293b;">${fmt(w.b20)}</td>
                     <td style="padding:8px 10px; text-align:center; font-weight:500; color:#1e293b;">${fmt(w.b40)}</td>
                 </tr>
@@ -33877,22 +33883,26 @@ function showWhResult(w) {
             # 2026년 8월 1일부 적용
         </div>
     </div>`;
+    document.getElementById('resAddr').after(card);
 
-    // resultBox 안에서 resAddr 다음에 삽입
-    const resAddr = document.getElementById('resAddr');
-    resAddr.after(card);
-
-    // 고시운임 섹션 숨기기 (fare-section 클래스 기준)
+    // 고시운임/상세내역/사사오입/운수사버튼 숨기기
     document.querySelectorAll('.fare-section').forEach(el => el.style.display = 'none');
-    ['quoteSection','detailSection'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
+    document.querySelector('.detail-table-title')?.style && (document.querySelector('.detail-table-title').style.display = 'none');
+    document.querySelector('.detail-table')?.style && (document.querySelector('.detail-table').style.display = 'none');
+    document.getElementById('btnRoundAll').style.display = 'none';
+    document.getElementById('carrierBtnWrap').style.display = 'none';
+
+    // 견적 설정 표시 + calculateFare 호출
+    const quoteEl = document.getElementById('quoteSection');
+    if (quoteEl) quoteEl.style.display = '';
+
+    calculateFare();
 
     document.getElementById('customSelect').classList.remove('open');
     document.getElementById('whSuggestList').innerHTML = '';
     document.getElementById('whSearchInput').value = w.name;
 }
+
 document.querySelectorAll('.sc-check').forEach(el => el.addEventListener('change', calculateFare));
 </script>
 </body>
