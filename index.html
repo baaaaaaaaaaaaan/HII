@@ -32321,14 +32321,15 @@ function onSearchInput(val) {
             const merged = [...keywordResults, ...addrConverted].slice(0, 10);
 
             if (merged.length === 0) {
-                listEl.innerHTML = '<div class="kakao-suggest-empty">검색 결과가 없습니다</div>';
                 // Kakao 결과 없으면 로컬 DB에서 직접 주소 매칭 시도
                 const localMatches = searchLocalDB(keyword);
                 if (localMatches.length > 0) {
                     renderKakaoSuggestions(localMatches);
                     return;
                 }
-                listEl.classList.add('open');
+                // 둘 다 없으면 안내문구 표시
+                listEl.classList.remove('open');
+                showKakaoMatchNotice(false);
                 return;
             }
             renderKakaoSuggestions(merged);
