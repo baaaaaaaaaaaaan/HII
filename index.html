@@ -389,17 +389,17 @@
             <table id="distTable" style="width:100%; border-collapse:collapse; font-size:0.72rem; table-layout:fixed;">
                 <thead>
                     <tr style="position:sticky; top:0; z-index:2; background:#1e293b;">
-                        <th rowspan="2" style="padding:6px 4px; text-align:center; color:#94a3b8; font-weight:500; width:38px; border-right:1px solid #334155;">km</th>
-                        <th colspan="3" style="padding:5px 4px; text-align:center; color:#93c5fd; font-weight:600; border-bottom:0.5px solid #334155; border-right:1px solid #334155;">40FT</th>
-                        <th colspan="3" style="padding:5px 4px; text-align:center; color:#86efac; font-weight:600; border-bottom:0.5px solid #334155;">20FT</th>
+                        <th rowspan="2" style="padding:4px 4px; text-align:center; color:#94a3b8; font-weight:500; width:38px; border-right:1px solid #334155; vertical-align:middle;">km</th>
+                        <th colspan="3" style="padding:4px 4px; text-align:center; color:#93c5fd; font-weight:600; border-bottom:0.5px solid #334155; border-right:1px solid #334155;">40FT</th>
+                        <th colspan="3" style="padding:4px 4px; text-align:center; color:#86efac; font-weight:600; border-bottom:0.5px solid #334155;">20FT</th>
                     </tr>
-                    <tr style="position:sticky; top:28px; z-index:2; background:#1e293b;">
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">위탁</th>
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; background:#172032;">운수사간</th>
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; border-right:1px solid #334155;">운송</th>
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">위탁</th>
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; background:#172032;">운수사간</th>
-                        <th style="padding:5px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">운송</th>
+                    <tr style="position:sticky; top:22px; z-index:2; background:#1e293b;">
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">위탁</th>
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; background:#172032;">운수사간</th>
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; border-right:1px solid #334155;">운송</th>
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">위탁</th>
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155; background:#172032;">운수사간</th>
+                        <th style="padding:3px 3px; text-align:center; color:#94a3b8; font-weight:400; border-bottom:1px solid #334155;">운송</th>
                     </tr>
                 </thead>
                 <tbody id="distTableBody"></tbody>
@@ -32212,6 +32212,7 @@ function selectOrigin(type, text) {
     if (isDist) {
         document.getElementById('distanceKmInput').value = '';
         document.getElementById('distanceNotice').innerText = '';
+        refreshDistTable(); // 타입 변경 시 테이블 값 즉시 갱신
     }
 
     const input = document.getElementById('mainSearchInput');
@@ -33106,16 +33107,24 @@ function buildDistTable() {
 function refreshDistTable() {
     if (!distTableBuilt) return;
     const r1000 = v => Math.round(v / 1000) * 1000;
-    const fmt = v => (isRoundFare ? r1000(v) : v).toLocaleString();
+    const round100 = v => Math.round(v / 100) * 100;
+    const rate = currentType === 'dist_icn' ? 0.2 : currentType === 'dist_pt' ? 0.18 : 0;
+
     distanceDB.forEach(r => {
         const tr = document.getElementById(`dtr-${r.d}`);
         if (!tr) return;
-        tr.querySelector('.dtd-p40t').innerText = fmt(r.p40t);
-        tr.querySelector('.dtd-p40b').innerText = fmt(r.p40b);
-        tr.querySelector('.dtd-p40s').innerText = fmt(r.p40s);
-        tr.querySelector('.dtd-p20t').innerText = fmt(r.p20t);
-        tr.querySelector('.dtd-p20b').innerText = fmt(r.p20b);
-        tr.querySelector('.dtd-p20s').innerText = fmt(r.p20s);
+        const add40 = rate > 0 ? round100(r.p40t * rate) : 0;
+        const add20 = rate > 0 ? round100(r.p20t * rate) : 0;
+        const fmt = (base, add) => {
+            const v = isRoundFare ? r1000(base + add) : (base + add);
+            return v.toLocaleString();
+        };
+        tr.querySelector('.dtd-p40t').innerText = fmt(r.p40t, add40);
+        tr.querySelector('.dtd-p40b').innerText = fmt(r.p40b, add40);
+        tr.querySelector('.dtd-p40s').innerText = fmt(r.p40s, add40);
+        tr.querySelector('.dtd-p20t').innerText = fmt(r.p20t, add20);
+        tr.querySelector('.dtd-p20b').innerText = fmt(r.p20b, add20);
+        tr.querySelector('.dtd-p20s').innerText = fmt(r.p20s, add20);
     });
 }
 
