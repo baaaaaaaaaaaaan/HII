@@ -32603,21 +32603,20 @@ function matchDatabaseByAddress(fullAddress) {
     const tokens = fullAddress.split(/\s+/).filter(Boolean);
     const list = getDatabase()[currentType] || [];
 
-    // 1) 동/읍/면/리 단위까지 포함해 뒤에서부터 점점 넓혀가며 매칭 시도 (가장 구체적인 단위 우선)
-    // 시/도 한 단어만으로는 매칭하지 않도록 최소 2개 토큰(시/도+시/군/구) 이상만 시도
+    // 1) 뒤에서부터 점점 넓혀가며 매칭 (최소 2토큰)
     for (let take = tokens.length; take >= 2; take--) {
         const partial = tokens.slice(0, take).join('').replace(/\s+/g, '');
         const found = list.find(it => {
             const dbFull = `${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, '');
-            return dbFull.includes(partial) || partial.includes(`${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, ''));
+            return dbFull.includes(partial) || partial.includes(dbFull);
         });
         if (found) return found;
     }
 
-    // 2) 동/읍/면/리로 끝나는 토큰만 따로 매칭 (시군구 표기가 다를 경우 대비)
-    const dongToken = [...tokens].reverse().find(t => /(동|읍|면|리)$/.test(t));
+    // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치만 허용
+    const dongToken = [...tokens].reverse().find(t => /(동|읍|면)$/.test(t));
     if (dongToken) {
-        const found = list.find(it => (it.e || '').includes(dongToken) || dongToken.includes(it.e || ''));
+        const found = list.find(it => it.e === dongToken);
         if (found) return found;
     }
 
@@ -33391,21 +33390,20 @@ function matchDatabaseByAddress(fullAddress) {
     const tokens = fullAddress.split(/\s+/).filter(Boolean);
     const list = getDatabase()[currentType] || [];
 
-    // 1) 동/읍/면/리 단위까지 포함해 뒤에서부터 점점 넓혀가며 매칭 시도 (가장 구체적인 단위 우선)
-    // 시/도 한 단어만으로는 매칭하지 않도록 최소 2개 토큰(시/도+시/군/구) 이상만 시도
+    // 1) 뒤에서부터 점점 넓혀가며 매칭 (최소 2토큰)
     for (let take = tokens.length; take >= 2; take--) {
         const partial = tokens.slice(0, take).join('').replace(/\s+/g, '');
         const found = list.find(it => {
             const dbFull = `${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, '');
-            return dbFull.includes(partial) || partial.includes(`${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, ''));
+            return dbFull.includes(partial) || partial.includes(dbFull);
         });
         if (found) return found;
     }
 
-    // 2) 동/읍/면/리로 끝나는 토큰만 따로 매칭 (시군구 표기가 다를 경우 대비)
-    const dongToken = [...tokens].reverse().find(t => /(동|읍|면|리)$/.test(t));
+    // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치만 허용
+    const dongToken = [...tokens].reverse().find(t => /(동|읍|면)$/.test(t));
     if (dongToken) {
-        const found = list.find(it => (it.e || '').includes(dongToken) || dongToken.includes(it.e || ''));
+        const found = list.find(it => it.e === dongToken);
         if (found) return found;
     }
 
