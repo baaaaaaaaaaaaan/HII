@@ -548,6 +548,21 @@
                     <td id="tableR20" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
                     <td id="tableR40" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
                 </tr>
+                <tr id="fareChangeRow" style="display:none;">
+                    <td class="row-title">· 견적가(청구)</td>
+                    <td id="tableChg20s" style="font-size:0.77rem; text-align:center;"></td>
+                    <td id="tableChg40s" style="font-size:0.77rem; text-align:center;"></td>
+                </tr>
+                <tr id="fareChangeRowB" style="display:none;">
+                    <td class="row-title">· 운수사간</td>
+                    <td id="tableChg20b" style="font-size:0.77rem; text-align:center;"></td>
+                    <td id="tableChg40b" style="font-size:0.77rem; text-align:center;"></td>
+                </tr>
+                <tr id="fareChangeRowT" style="display:none;">
+                    <td class="row-title">· 안전위탁(하불)</td>
+                    <td id="tableChg20t" style="font-size:0.77rem; text-align:center;"></td>
+                    <td id="tableChg40t" style="font-size:0.77rem; text-align:center;"></td>
+                </tr>
                 <tr>
                     <td class="row-title">세부 항목</td>
                     <td id="tableDetail20" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top; border-right:1px solid #ddd6fe;">선택된 할증 없음</td>
@@ -32823,6 +32838,26 @@ function calculateFare() {
     
     document.getElementById('tableDetail40').innerHTML = textDetail40;
     document.getElementById('tableDetail20').innerHTML = textDetail20;
+
+    // 견적가/운수사간/위탁 할증 전→후 표시
+    const hasSurch = detailAmt40 > 0 || detailAmt20 > 0;
+    ['fareChangeRow','fareChangeRowB','fareChangeRowT'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = hasSurch ? '' : 'none';
+    });
+    if (hasSurch) {
+        const fmtN = v => Math.round(v).toLocaleString();
+        const r1k = v => Math.round(v/1000)*1000;
+        const rf = v => isRoundFare ? r1k(v) : Math.round(v);
+        const fq = (p, sur) => rf(p*(1+sur));
+        const sur40 = lastResult.r40/100, sur20 = lastResult.r20/100;
+        const arr = '<span style="color:#94a3b8;margin:0 2px;font-size:0.68rem;">→</span>';
+        document.getElementById('tableChg20s').innerHTML = `${fmtN(rf(currentItem.p20s))} ${arr} ${fmtN(fq(currentItem.p20s,sur20))}원`;
+        document.getElementById('tableChg40s').innerHTML = `${fmtN(rf(currentItem.p40s))} ${arr} ${fmtN(fq(currentItem.p40s,sur40))}원`;
+        document.getElementById('tableChg20b').innerHTML = `${fmtN(rf(currentItem.p20b))} ${arr} ${fmtN(fq(currentItem.p20b,sur20))}원`;
+        document.getElementById('tableChg40b').innerHTML = `${fmtN(rf(currentItem.p40b))} ${arr} ${fmtN(fq(currentItem.p40b,sur40))}원`;
+        document.getElementById('tableChg20t').innerHTML = `${fmtN(rf(currentItem.p20t))} ${arr} ${fmtN(fq(currentItem.p20t,sur20))}원`;
+        document.getElementById('tableChg40t').innerHTML = `${fmtN(rf(currentItem.p40t))} ${arr} ${fmtN(fq(currentItem.p40t,sur40))}원`;
+    }
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
