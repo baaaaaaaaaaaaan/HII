@@ -538,35 +538,25 @@
             <thead>
                 <tr>
                     <th style="width:22%;">구분</th>
-                    <th style="width:39%;">20FT 상세내역</th>
-                    <th style="width:39%;">40FT 상세내역</th>
+                    <th style="width:39%;">20FT</th>
+                    <th style="width:39%;">40FT</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td class="row-title">할증 합계</td>
-                    <td id="tableR20" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
-                    <td id="tableR40" style="color:#1d4ed8; font-weight:800;">0% (0원)</td>
+                <tr id="fareChangeRow">
+                    <td class="row-title">견적가<br><span style="font-weight:400; color:#6b7280;">(청구)</span></td>
+                    <td id="tableChg20s" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
+                    <td id="tableChg40s" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
                 </tr>
-                <tr id="fareChangeRow" style="display:none;">
-                    <td class="row-title">· 견적가(청구)</td>
-                    <td id="tableChg20s" style="font-size:0.77rem; text-align:center;"></td>
-                    <td id="tableChg40s" style="font-size:0.77rem; text-align:center;"></td>
+                <tr id="fareChangeRowB">
+                    <td class="row-title">운수사간</td>
+                    <td id="tableChg20b" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
+                    <td id="tableChg40b" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
                 </tr>
-                <tr id="fareChangeRowB" style="display:none;">
-                    <td class="row-title">· 운수사간</td>
-                    <td id="tableChg20b" style="font-size:0.77rem; text-align:center;"></td>
-                    <td id="tableChg40b" style="font-size:0.77rem; text-align:center;"></td>
-                </tr>
-                <tr id="fareChangeRowT" style="display:none;">
-                    <td class="row-title">· 안전위탁(하불)</td>
-                    <td id="tableChg20t" style="font-size:0.77rem; text-align:center;"></td>
-                    <td id="tableChg40t" style="font-size:0.77rem; text-align:center;"></td>
-                </tr>
-                <tr>
-                    <td class="row-title">세부 항목</td>
-                    <td id="tableDetail20" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top; border-right:1px solid #ddd6fe;">선택된 할증 없음</td>
-                    <td id="tableDetail40" style="font-size:0.75rem; text-align:left; font-weight:normal; line-height:1.4; vertical-align:top;">선택된 할증 없음</td>
+                <tr id="fareChangeRowT">
+                    <td class="row-title">안전위탁<br><span style="font-weight:400; color:#6b7280;">(하불)</span></td>
+                    <td id="tableChg20t" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
+                    <td id="tableChg40t" style="font-size:0.75rem; vertical-align:top; padding:8px 6px;">-</td>
                 </tr>
             </tbody>
         </table>
@@ -32745,13 +32735,21 @@ function calculateFare() {
     const fmt = (v) => Math.round(v).toLocaleString() + "원";
     const round1000 = (val) => Math.round(val / 1000) * 1000;
     const round10 = (val) => Math.round(val / 10) * 10;
-    // 1. 고시운임 계산 (상단 탭 출력용)
-    let f40t = currentItem.p40t * (1 + res40.total);
-    let f40b = currentItem.p40b * (1 + res40.total);
-    let f40s = currentItem.p40s * (1 + res40.total);
-    let f20t = currentItem.p20t * (1 + res20.total);
-    let f20b = currentItem.p20b * (1 + res20.total);
-    let f20s = currentItem.p20s * (1 + res20.total);
+    // 1. 고시운임 계산 (규정: 항목별 100원 사사오입 후 합산)
+    function fareSum(base, items) {
+        let sum = 0;
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            sum += Math.round(base * applyRate / 100) * 100;
+        });
+        return base + sum;
+    }
+    let f40t = fareSum(currentItem.p40t, res40.items);
+    let f40b = fareSum(currentItem.p40b, res40.items);
+    let f40s = fareSum(currentItem.p40s, res40.items);
+    let f20t = fareSum(currentItem.p20t, res20.items);
+    let f20b = fareSum(currentItem.p20b, res20.items);
+    let f20s = fareSum(currentItem.p20s, res20.items);
 
     if (isRoundFare) {
         f40t = round1000(f40t);
@@ -32777,13 +32775,8 @@ function calculateFare() {
     const margin40 = fq40s - fq40t;
     const margin20 = fq20s - fq20t;
 
-    let q40 = fq40s - (margin40 * discount);
-    let q20 = fq20s - (margin20 * discount);
-
-    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
-    else { q40 = Math.round(q40); q20 = Math.round(q20); }
-
-    // 할증 상세내역 (UI/복사용) - 쉐어 적용된 기준가 기준으로 각 항목 계산
+    // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
+    // 할증 기준: 원본 고시운임 (쉐어율 적용)
     const surchargeBase40 = (isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
         - ((isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
          - (isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t)) * discount;
@@ -32791,36 +32784,59 @@ function calculateFare() {
         - ((isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
          - (isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t)) * discount;
 
-    let uiDetails40 = [], copyDetails40 = [], detailAmt40 = 0;
-    res40.items.forEach((item, idx) => {
-        const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(surchargeBase40 * applyRate);
-        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        detailAmt40 += itemAmt;
+    // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
+    function calcDetailItems(base, items, roundFn) {
+        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
+        const totalAmt = roundFn(base * totalRate);
+        const result = [];
+        let allocated = 0;
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            // 항목별 표시 금액: 마지막 항목은 나머지로 처리해 합계 정확히 맞춤
+            let amt = (idx < items.length - 1)
+                ? roundFn(base * applyRate)
+                : totalAmt - allocated;
+            allocated += amt;
+            result.push({ item, applyRate, amt });
+        });
+        return { totalAmt, items: result };
+    }
+    const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
+    const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
+
+    const detail40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
+    const detail20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
+    const detailAmt40 = detail40.totalAmt;
+    const detailAmt20 = detail20.totalAmt;
+
+    let uiDetails40 = [], copyDetails40 = [];
+    detail40.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        uiDetails40.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
-        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
+        const pctLabel = (detail40.items.indexOf({item,applyRate,amt}) === 0 || applyRate === item.rate) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
+        uiDetails40.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
+        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
     });
 
-    let uiDetails20 = [], copyDetails20 = [], detailAmt20 = 0;
-    res20.items.forEach((item, idx) => {
-        const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(surchargeBase20 * applyRate);
-        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        detailAmt20 += itemAmt;
+    let uiDetails20 = [], copyDetails20 = [];
+    detail20.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
-        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
+        uiDetails20.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
+        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
     });
+
+    // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
+    let q40 = surchargeBase40 + detailAmt40;
+    let q20 = surchargeBase20 + detailAmt20;
+    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
+    else { q40 = Math.round(q40); q20 = Math.round(q20); }
 
     lastResult.q40 = q40;
     lastResult.q20 = q20;
-    lastResult.base40 = isRoundQuote ? round1000(fq40s - margin40 * discount) : Math.round(fq40s - margin40 * discount);
-    lastResult.base20 = isRoundQuote ? round1000(fq20s - margin20 * discount) : Math.round(fq20s - margin20 * discount);
+    // base = 할증 전 견적 기준가 (surchargeBase = 쉐어율만 적용, 할증 미포함)
+    lastResult.base40 = isRoundQuote ? round1000(surchargeBase40) : Math.round(surchargeBase40);
+    lastResult.base20 = isRoundQuote ? round1000(surchargeBase20) : Math.round(surchargeBase20);
     lastResult.rawAmt40 = detailAmt40;
     lastResult.rawAmt20 = detailAmt20;
     lastResult.r40 = Math.round(res40.total * 100);
@@ -32829,35 +32845,57 @@ function calculateFare() {
     const textDetail40 = uiDetails40.join('<br>') || '선택된 할증 없음';
     const textDetail20 = uiDetails20.join('<br>') || '선택된 할증 없음';
     
+    // 다수 할증일 때 소계 줄 추가
+    if (detail40.items.length > 1) copyDetails40.push(`     = ${detailAmt40.toLocaleString()}원`);
+    if (detail20.items.length > 1) copyDetails20.push(`     = ${detailAmt20.toLocaleString()}원`);
+
     lastResult.listForCopy40 = copyDetails40.join('\n') || '';
     lastResult.listForCopy20 = copyDetails20.join('\n') || '';
 
     // tableR: 실제 계산된 amt 기준으로 실효 할증률 역산해서 표시 (rate 기반 r40과 금액 기반 amt가 사사오입으로 미세 불일치하는 문제 방지)
-    document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`;
-    document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`;
-    
-    document.getElementById('tableDetail40').innerHTML = textDetail40;
-    document.getElementById('tableDetail20').innerHTML = textDetail20;
+    // tableR/tableDetail - 구 요소, 호환성 유지
+    document.getElementById('tableR40')?.innerText && (document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`);
+    document.getElementById('tableR20')?.innerText && (document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`);
 
-    // 견적가/운수사간/위탁 할증 전→후 표시
+    // 견적가/운수사간/위탁 상세 표시
     const hasSurch = detailAmt40 > 0 || detailAmt20 > 0;
-    ['fareChangeRow','fareChangeRowB','fareChangeRowT'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.style.display = hasSurch ? '' : 'none';
-    });
-    if (hasSurch) {
-        const fmtN = v => Math.round(v).toLocaleString();
+    const noSurchHtml = '<span style="color:#94a3b8;font-size:0.75rem;">선택된 할증 없음</span>';
+
+    function buildFareCell(base, items, surTotal) {
+        if (!hasSurch || items.length === 0) return noSurchHtml;
         const r1k = v => Math.round(v/1000)*1000;
-        const rf = v => isRoundFare ? r1k(v) : Math.round(v);
-        const fq = (p, sur) => rf(p*(1+sur));
-        const sur40 = lastResult.r40/100, sur20 = lastResult.r20/100;
-        const arr = '<span style="color:#94a3b8;margin:0 2px;font-size:0.68rem;">→</span>';
-        document.getElementById('tableChg20s').innerHTML = `${fmtN(rf(currentItem.p20s))} ${arr} ${fmtN(fq(currentItem.p20s,sur20))}원`;
-        document.getElementById('tableChg40s').innerHTML = `${fmtN(rf(currentItem.p40s))} ${arr} ${fmtN(fq(currentItem.p40s,sur40))}원`;
-        document.getElementById('tableChg20b').innerHTML = `${fmtN(rf(currentItem.p20b))} ${arr} ${fmtN(fq(currentItem.p20b,sur20))}원`;
-        document.getElementById('tableChg40b').innerHTML = `${fmtN(rf(currentItem.p40b))} ${arr} ${fmtN(fq(currentItem.p40b,sur40))}원`;
-        document.getElementById('tableChg20t').innerHTML = `${fmtN(rf(currentItem.p20t))} ${arr} ${fmtN(fq(currentItem.p20t,sur20))}원`;
-        document.getElementById('tableChg40t').innerHTML = `${fmtN(rf(currentItem.p40t))} ${arr} ${fmtN(fq(currentItem.p40t,sur40))}원`;
+        const fmtN = v => Math.round(v).toLocaleString();
+        // OFF=100원 기본, ON=1000원 추가 사사오입
+        let itemsHtml = '';
+        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            let amt = Math.round(base * applyRate);
+            amt = isRoundDetail ? r1k(amt) : Math.round(amt/100)*100;
+            const origPct = Math.round(item.rate * 100);
+            const applyPct = Math.round(applyRate * 100);
+            const label = origPct !== applyPct ? `${item.name}(${origPct}%→${applyPct}%)` : `${item.name}(${origPct}%)`;
+            itemsHtml += `<div style="color:#6b7280;font-size:0.72rem;margin-top:2px;">${label} +${fmtN(amt)}원</div>`;
+        });
+        // 합계: 총 할증률로 한 번에 100원 사사오입 (규정 방식)
+        const roundFn = v => isRoundDetail ? r1k(v) : Math.round(v/100)*100;
+        const totalSurch = roundFn(base * totalRate);
+        const fareTotal = base + totalSurch;
+        const finalFare = isRoundFare ? r1k(fareTotal) : Math.round(fareTotal);
+        const rateLabel = Math.round(totalRate * 100);
+        const subTotalHtml = items.length > 1
+            ? `<div style="font-size:0.73rem;font-weight:600;color:#b45309;margin-top:3px;padding-top:3px;border-top:0.5px dashed #e2e8f0;">= ${fmtN(totalSurch)}원</div>`
+            : '';
+        return `${itemsHtml}${subTotalHtml}<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:0.5px solid #ddd6fe;"><span style="font-weight:600;color:#1e293b;font-size:0.82rem;">${fmtN(finalFare)}원</span><span style="font-size:0.7rem;color:#2563eb;font-weight:500;background:#eff6ff;padding:1px 6px;border-radius:4px;">+${rateLabel}%</span></div>`;
     }
+
+    const sur40 = res40.total, sur20 = res20.total;
+    document.getElementById('tableChg20s').innerHTML = buildFareCell(currentItem.p20s, res20.items, sur20);
+    document.getElementById('tableChg40s').innerHTML = buildFareCell(currentItem.p40s, res40.items, sur40);
+    document.getElementById('tableChg20b').innerHTML = buildFareCell(currentItem.p20b, res20.items, sur20);
+    document.getElementById('tableChg40b').innerHTML = buildFareCell(currentItem.p40b, res40.items, sur40);
+    document.getElementById('tableChg20t').innerHTML = buildFareCell(currentItem.p20t, res20.items, sur20);
+    document.getElementById('tableChg40t').innerHTML = buildFareCell(currentItem.p40t, res40.items, sur40);
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
@@ -32885,8 +32923,8 @@ function copyQuoteText(ft) {
 
     function fareBlock(ftType) {
         const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
-        const amt  = ftType === '20' ? lastResult.rawAmt20 : lastResult.rawAmt40;
         const q    = ftType === '20' ? lastResult.q20 : lastResult.q40;
+        const amt  = q - base; // 항상 최종-기본으로 계산해서 base+amt=q 보장
         if (hasSurcharge && amt > 0)
             return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
         return `${ftType}FT │ ${q.toLocaleString()} 원`;
@@ -32922,6 +32960,15 @@ ${fareLine}`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
+            // 소계 줄 (= X원 형태)
+            if (row40.trim().startsWith('=')) {
+                const sub40 = row40.trim().replace(/[^\d,]/g, '');
+                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                else if (ft === '20') text += `\n  합계  +${sub20}원`;
+                else text += `\n  합계  +${sub40}원`;
+                return;
+            }
             if (!p40) return;
             if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
@@ -33010,6 +33057,15 @@ ${fareLine}`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
+            // 소계 줄 (= X원 형태)
+            if (row40.trim().startsWith('=')) {
+                const sub40 = row40.trim().replace(/[^\d,]/g, '');
+                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                else if (ft === '20') text += `\n  합계  +${sub20}원`;
+                else text += `\n  합계  +${sub40}원`;
+                return;
+            }
             if (!p40) return;
             if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
@@ -33555,13 +33611,21 @@ function calculateFare() {
     const fmt = (v) => Math.round(v).toLocaleString() + "원";
     const round1000 = (val) => Math.round(val / 1000) * 1000;
     const round10 = (val) => Math.round(val / 10) * 10;
-    // 1. 고시운임 계산 (상단 탭 출력용)
-    let f40t = currentItem.p40t * (1 + res40.total);
-    let f40b = currentItem.p40b * (1 + res40.total);
-    let f40s = currentItem.p40s * (1 + res40.total);
-    let f20t = currentItem.p20t * (1 + res20.total);
-    let f20b = currentItem.p20b * (1 + res20.total);
-    let f20s = currentItem.p20s * (1 + res20.total);
+    // 1. 고시운임 계산 (규정: 항목별 100원 사사오입 후 합산)
+    function fareSum(base, items) {
+        let sum = 0;
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            sum += Math.round(base * applyRate / 100) * 100;
+        });
+        return base + sum;
+    }
+    let f40t = fareSum(currentItem.p40t, res40.items);
+    let f40b = fareSum(currentItem.p40b, res40.items);
+    let f40s = fareSum(currentItem.p40s, res40.items);
+    let f20t = fareSum(currentItem.p20t, res20.items);
+    let f20b = fareSum(currentItem.p20b, res20.items);
+    let f20s = fareSum(currentItem.p20s, res20.items);
 
     if (isRoundFare) {
         f40t = round1000(f40t);
@@ -33587,13 +33651,8 @@ function calculateFare() {
     const margin40 = fq40s - fq40t;
     const margin20 = fq20s - fq20t;
 
-    let q40 = fq40s - (margin40 * discount);
-    let q20 = fq20s - (margin20 * discount);
-
-    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
-    else { q40 = Math.round(q40); q20 = Math.round(q20); }
-
-    // 할증 상세내역 (UI/복사용) - 쉐어 적용된 기준가 기준으로 각 항목 계산
+    // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
+    // 할증 기준: 원본 고시운임 (쉐어율 적용)
     const surchargeBase40 = (isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
         - ((isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
          - (isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t)) * discount;
@@ -33601,36 +33660,59 @@ function calculateFare() {
         - ((isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
          - (isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t)) * discount;
 
-    let uiDetails40 = [], copyDetails40 = [], detailAmt40 = 0;
-    res40.items.forEach((item, idx) => {
-        const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(surchargeBase40 * applyRate);
-        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        detailAmt40 += itemAmt;
+    // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
+    function calcDetailItems(base, items, roundFn) {
+        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
+        const totalAmt = roundFn(base * totalRate);
+        const result = [];
+        let allocated = 0;
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            // 항목별 표시 금액: 마지막 항목은 나머지로 처리해 합계 정확히 맞춤
+            let amt = (idx < items.length - 1)
+                ? roundFn(base * applyRate)
+                : totalAmt - allocated;
+            allocated += amt;
+            result.push({ item, applyRate, amt });
+        });
+        return { totalAmt, items: result };
+    }
+    const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
+    const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
+
+    const detail40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
+    const detail20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
+    const detailAmt40 = detail40.totalAmt;
+    const detailAmt20 = detail20.totalAmt;
+
+    let uiDetails40 = [], copyDetails40 = [];
+    detail40.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        uiDetails40.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
-        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
+        const pctLabel = (detail40.items.indexOf({item,applyRate,amt}) === 0 || applyRate === item.rate) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
+        uiDetails40.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
+        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
     });
 
-    let uiDetails20 = [], copyDetails20 = [], detailAmt20 = 0;
-    res20.items.forEach((item, idx) => {
-        const applyRate = (idx === 0) ? item.rate : (item.rate * 0.5);
-        let itemAmt = Math.round(surchargeBase20 * applyRate);
-        itemAmt = isRoundDetail ? round1000(itemAmt) : Math.round(itemAmt / 100) * 100;
-        detailAmt20 += itemAmt;
+    let uiDetails20 = [], copyDetails20 = [];
+    detail20.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        const pctLabel = (idx === 0) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        uiDetails20.push(`• ${item.name}: +${itemAmt.toLocaleString()}원 (${pctLabel})`);
-        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${itemAmt.toLocaleString()}원 / ${applyPct} 반영`);
+        uiDetails20.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
+        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
     });
+
+    // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
+    let q40 = surchargeBase40 + detailAmt40;
+    let q20 = surchargeBase20 + detailAmt20;
+    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
+    else { q40 = Math.round(q40); q20 = Math.round(q20); }
 
     lastResult.q40 = q40;
     lastResult.q20 = q20;
-    lastResult.base40 = isRoundQuote ? round1000(fq40s - margin40 * discount) : Math.round(fq40s - margin40 * discount);
-    lastResult.base20 = isRoundQuote ? round1000(fq20s - margin20 * discount) : Math.round(fq20s - margin20 * discount);
+    // base = 할증 전 견적 기준가 (surchargeBase = 쉐어율만 적용, 할증 미포함)
+    lastResult.base40 = isRoundQuote ? round1000(surchargeBase40) : Math.round(surchargeBase40);
+    lastResult.base20 = isRoundQuote ? round1000(surchargeBase20) : Math.round(surchargeBase20);
     lastResult.rawAmt40 = detailAmt40;
     lastResult.rawAmt20 = detailAmt20;
     lastResult.r40 = Math.round(res40.total * 100);
@@ -33639,15 +33721,57 @@ function calculateFare() {
     const textDetail40 = uiDetails40.join('<br>') || '선택된 할증 없음';
     const textDetail20 = uiDetails20.join('<br>') || '선택된 할증 없음';
     
+    // 다수 할증일 때 소계 줄 추가
+    if (detail40.items.length > 1) copyDetails40.push(`     = ${detailAmt40.toLocaleString()}원`);
+    if (detail20.items.length > 1) copyDetails20.push(`     = ${detailAmt20.toLocaleString()}원`);
+
     lastResult.listForCopy40 = copyDetails40.join('\n') || '';
     lastResult.listForCopy20 = copyDetails20.join('\n') || '';
 
     // tableR: 실제 계산된 amt 기준으로 실효 할증률 역산해서 표시 (rate 기반 r40과 금액 기반 amt가 사사오입으로 미세 불일치하는 문제 방지)
-    document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`;
-    document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`;
-    
-    document.getElementById('tableDetail40').innerHTML = textDetail40;
-    document.getElementById('tableDetail20').innerHTML = textDetail20;
+    // tableR/tableDetail - 구 요소, 호환성 유지
+    document.getElementById('tableR40')?.innerText && (document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`);
+    document.getElementById('tableR20')?.innerText && (document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`);
+
+    // 견적가/운수사간/위탁 상세 표시
+    const hasSurch = detailAmt40 > 0 || detailAmt20 > 0;
+    const noSurchHtml = '<span style="color:#94a3b8;font-size:0.75rem;">선택된 할증 없음</span>';
+
+    function buildFareCell(base, items, surTotal) {
+        if (!hasSurch || items.length === 0) return noSurchHtml;
+        const r1k = v => Math.round(v/1000)*1000;
+        const fmtN = v => Math.round(v).toLocaleString();
+        // OFF=100원 기본, ON=1000원 추가 사사오입
+        let itemsHtml = '';
+        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
+        items.forEach((item, idx) => {
+            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
+            let amt = Math.round(base * applyRate);
+            amt = isRoundDetail ? r1k(amt) : Math.round(amt/100)*100;
+            const origPct = Math.round(item.rate * 100);
+            const applyPct = Math.round(applyRate * 100);
+            const label = origPct !== applyPct ? `${item.name}(${origPct}%→${applyPct}%)` : `${item.name}(${origPct}%)`;
+            itemsHtml += `<div style="color:#6b7280;font-size:0.72rem;margin-top:2px;">${label} +${fmtN(amt)}원</div>`;
+        });
+        // 합계: 총 할증률로 한 번에 100원 사사오입 (규정 방식)
+        const roundFn = v => isRoundDetail ? r1k(v) : Math.round(v/100)*100;
+        const totalSurch = roundFn(base * totalRate);
+        const fareTotal = base + totalSurch;
+        const finalFare = isRoundFare ? r1k(fareTotal) : Math.round(fareTotal);
+        const rateLabel = Math.round(totalRate * 100);
+        const subTotalHtml = items.length > 1
+            ? `<div style="font-size:0.73rem;font-weight:600;color:#b45309;margin-top:3px;padding-top:3px;border-top:0.5px dashed #e2e8f0;">= ${fmtN(totalSurch)}원</div>`
+            : '';
+        return `${itemsHtml}${subTotalHtml}<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:0.5px solid #ddd6fe;"><span style="font-weight:600;color:#1e293b;font-size:0.82rem;">${fmtN(finalFare)}원</span><span style="font-size:0.7rem;color:#2563eb;font-weight:500;background:#eff6ff;padding:1px 6px;border-radius:4px;">+${rateLabel}%</span></div>`;
+    }
+
+    const sur40 = res40.total, sur20 = res20.total;
+    document.getElementById('tableChg20s').innerHTML = buildFareCell(currentItem.p20s, res20.items, sur20);
+    document.getElementById('tableChg40s').innerHTML = buildFareCell(currentItem.p40s, res40.items, sur40);
+    document.getElementById('tableChg20b').innerHTML = buildFareCell(currentItem.p20b, res20.items, sur20);
+    document.getElementById('tableChg40b').innerHTML = buildFareCell(currentItem.p40b, res40.items, sur40);
+    document.getElementById('tableChg20t').innerHTML = buildFareCell(currentItem.p20t, res20.items, sur20);
+    document.getElementById('tableChg40t').innerHTML = buildFareCell(currentItem.p40t, res40.items, sur40);
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
@@ -33675,8 +33799,8 @@ function copyQuoteText(ft) {
 
     function fareBlock(ftType) {
         const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
-        const amt  = ftType === '20' ? lastResult.rawAmt20 : lastResult.rawAmt40;
         const q    = ftType === '20' ? lastResult.q20 : lastResult.q40;
+        const amt  = q - base; // 항상 최종-기본으로 계산해서 base+amt=q 보장
         if (hasSurcharge && amt > 0)
             return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()} = ${q.toLocaleString()}원`;
         return `${ftType}FT │ ${q.toLocaleString()} 원`;
@@ -33712,6 +33836,15 @@ ${fareLine}`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
+            // 소계 줄 (= X원 형태)
+            if (row40.trim().startsWith('=')) {
+                const sub40 = row40.trim().replace(/[^\d,]/g, '');
+                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                else if (ft === '20') text += `\n  합계  +${sub20}원`;
+                else text += `\n  합계  +${sub40}원`;
+                return;
+            }
             if (!p40) return;
             if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
@@ -33800,6 +33933,15 @@ ${fareLine}`;
         items40.forEach((row40, i) => {
             const p40 = parseItem(row40);
             const p20 = parseItem(items20[i] || '');
+            // 소계 줄 (= X원 형태)
+            if (row40.trim().startsWith('=')) {
+                const sub40 = row40.trim().replace(/[^\d,]/g, '');
+                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                else if (ft === '20') text += `\n  합계  +${sub20}원`;
+                else text += `\n  합계  +${sub40}원`;
+                return;
+            }
             if (!p40) return;
             if (!ft) {
                 text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
