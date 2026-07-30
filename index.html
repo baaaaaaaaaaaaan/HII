@@ -33379,15 +33379,28 @@ function renderCmpTable(ft) {
         return `<span class="cmp-same">변동 없음</span>`;
     };
 
-    const rf = applyRoundFare;
+    const surItems = lastResult.surchargeItems || [];
+    const hasSurch = surItems.length > 0;
+
+    // 할증 적용된 고시운임 계산 (규정 방식)
+    function applyFareSum(base) {
+        if (!hasSurch) return applyRoundFare(base);
+        const r1k = v => Math.round(v/1000)*1000;
+        const round100 = v => Math.round(v/100)*100;
+        const roundFn = v => isRoundDetail ? r1k(v) : round100(v);
+        const totalRate = surItems.reduce((s, it, idx) => s + (idx === 0 ? it.rate : it.rate * 0.5), 0);
+        const total = base + roundFn(base * totalRate);
+        return isRoundFare ? r1k(total) : Math.round(total);
+    }
+
     const rows = ft === '20' ? [
-        ['안전위탁(하불)', rf(item1.p20t), rf(item2.p20t)],
-        ['운수사간 거래', rf(item1.p20b), rf(item2.p20b)],
-        ['안전운송(청구)', rf(item1.p20s), rf(item2.p20s)],
+        ['안전위탁(하불)', applyFareSum(item1.p20t), applyFareSum(item2.p20t)],
+        ['운수사간 거래', applyFareSum(item1.p20b), applyFareSum(item2.p20b)],
+        ['안전운송(청구)', applyFareSum(item1.p20s), applyFareSum(item2.p20s)],
     ] : [
-        ['안전위탁(하불)', rf(item1.p40t), rf(item2.p40t)],
-        ['운수사간 거래', rf(item1.p40b), rf(item2.p40b)],
-        ['안전운송(청구)', rf(item1.p40s), rf(item2.p40s)],
+        ['안전위탁(하불)', applyFareSum(item1.p40t), applyFareSum(item2.p40t)],
+        ['운수사간 거래', applyFareSum(item1.p40b), applyFareSum(item2.p40b)],
+        ['안전운송(청구)', applyFareSum(item1.p40s), applyFareSum(item2.p40s)],
     ];
 
     const qA = ft === '20' ? q1.q20 : q1.q40;
