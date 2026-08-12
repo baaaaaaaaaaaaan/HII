@@ -354,6 +354,21 @@
         .hist-card-cond { display:flex; gap:6px; margin-top:7px; flex-wrap:wrap; }
         .hist-cond-badge { font-size:0.65rem; padding:1px 4px; border-radius:8px; font-weight:600; }
         /* 이력 수정 모달 */
+        /* 전 거점 비교 모달 */
+        .all-origin-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:flex-start; justify-content:center; padding:16px; overflow-y:auto; }
+        .all-origin-overlay.open { display:flex; }
+        .all-origin-modal { background:#fff; border-radius:14px; width:100%; max-width:860px; margin:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+        .all-origin-header { background:#0f766e; color:white; padding:16px 20px; border-radius:14px 14px 0 0; display:flex; justify-content:space-between; align-items:center; }
+        .all-origin-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .all-origin-table th { background:#1e3a8a; color:white; padding:9px 12px; font-weight:600; text-align:right; }
+        .all-origin-table th:first-child { text-align:left; }
+        .all-origin-table td { padding:9px 12px; text-align:right; border-bottom:0.5px solid #e2e8f0; }
+        .all-origin-table td:first-child { text-align:left; }
+        .all-origin-table tr:nth-child(even) td { background:#f8fafc; }
+        .all-origin-table tr:hover td { background:#eff6ff; }
+        .all-origin-amt { font-weight:700; color:#0f766e; }
+        .all-origin-safe { font-size:0.78rem; color:#94a3b8; }
+        .origin-check { width:16px; height:16px; cursor:pointer; accent-color:#1e3a8a; }
         .edit-hist-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:center; justify-content:center; padding:16px; overflow-y:auto; }
         .edit-hist-overlay.open { display:flex; }
         .edit-hist-modal { background:#fff; border-radius:14px; width:100%; max-width:520px; margin:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
@@ -684,6 +699,7 @@
                 <button class="copy-btn copy-btn-flex" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')" style="margin-top:0; padding:12px 10px; flex-shrink:0; min-width:52px; background:#2563eb;">40FT</button>
             </div>
             <button id="cmpModalBtn" class="copy-btn copy-btn-full" onclick="openCmpModal()" style="margin-top:8px; background:#475569;">📊 2월 / 8월 운임 비교</button>
+            <button id="allOriginCmpBtn" class="copy-btn copy-btn-full" onclick="openAllOriginCmp()" style="margin-top:6px; background:#0f766e;">🗺️ 전 거점 운임 비교</button>
             <button class="copy-btn copy-btn-full" onclick="addToCart()" style="margin-top:8px; background:#166534; font-size:0.95rem;">🛒 견적 담기</button>
         </div>
 
@@ -35512,6 +35528,229 @@ function confirmEditHist() {
     alert('✅ 이력이 수정되었습니다.');
 }
 
+
+// ─── 전 거점 비교 ───────────────────────────────
+function openAllOriginCmp() {
+    if (!currentItem) { alert('먼저 행선지를 검색해주세요.'); return; }
+
+    const db = getDatabase();
+    const searchVal = document.getElementById('mainSearchInput').value.trim();
+    const searchKeyword = searchVal.replace(/\s+/g, '');
+    const weight = parseFloat(document.getElementById('weightVal').value) || 0;
+    const overLen = parseFloat(document.getElementById('overLength').value) || 0;
+    const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
+    const isRound = document.getElementById('btnRoundAll')?.classList.contains('active') || false;
+
+    // 현재 era 거점 목록
+    const era = currentEra;
+    const originList = era === 2 ? [
+        { type: 'pt2',   label: '평택항 기점' },
+        { type: 'bs2',   label: '부산신항 기점' },
+        { type: 'bb2',   label: '부산북항 기점' },
+        { type: 'icn2',  label: '인천항 기점' },
+        { type: 'icns2', label: '인천신항 터미널' },
+        { type: 'icnt2', label: '인천국제여객터미널' },
+        { type: 'gy2',   label: '광양항 기점' },
+        { type: 'uw2',   label: '의왕ICD 기지' },
+    ] : [
+        { type: 'pt',   label: '평택항 기점' },
+        { type: 'bs',   label: '부산신항 기점' },
+        { type: 'bb',   label: '부산북항 기점' },
+        { type: 'icn',  label: '인천항 기점' },
+        { type: 'icns', label: '인천신항 터미널' },
+        { type: 'icnt', label: '인천국제여객터미널' },
+        { type: 'gy',   label: '광양항 기점' },
+        { type: 'uw',   label: '의왕ICD 기지' },
+    ];
+
+    // 할증 체크박스 상태
+    const surchargeItems = [
+        { id: 'chkNight',    rate: 0.20, label: '심야(20%)' },
+        { id: 'chkHoliday',  rate: 0.20, label: '공휴일(20%)' },
+        { id: 'chkDanger',   rate: 0.30, label: '위험물(30%)' },
+        { id: 'chkExplosive',rate: 1.00, label: '화약(100%)' },
+        { id: 'chkRadio',    rate: 2.00, label: '방사성(200%)' },
+        { id: 'chkTank',     rate: 0.30, label: '탱크(30%)' },
+        { id: 'chkFlexi',    rate: 0.20, label: '플렉시액체(20%)' },
+        { id: 'chkFlexiP',   rate: 0.10, label: '플렉시분말(10%)' },
+        { id: 'chkCryo',     rate: 0.30, label: '냉동가동(30%)' },
+        { id: 'chkDump',     rate: 0.25, label: '덤프(25%)' },
+        { id: 'chkToll',     rate: 0.30, label: '통행제한(30%)' },
+        { id: 'chkRough',    rate: 0.20, label: '험로오지(20%)' },
+    ];
+    const checkedSurcharges = surchargeItems.filter(s => document.getElementById(s.id)?.checked);
+
+    function calcSurchargeRate(rates) {
+        if (!rates.length) return 0;
+        const sorted = [...rates].sort((a,b) => b-a);
+        let total = sorted[0];
+        for (let i=1; i<Math.min(sorted.length,3); i++) total += sorted[i]*0.5;
+        return total;
+    }
+    const surchRate = calcSurchargeRate(checkedSurcharges.map(s=>s.rate));
+    const surchText = checkedSurcharges.map(s=>s.label).join(', ') || '-';
+
+    function round100(v) { return Math.round(v/100)*100; }
+    function calcFare(base, surchRate, weight, overLen, isRound, is40) {
+        const wRate = is40 ? (weight>23?Math.ceil(weight-23)*0.1:0) : (weight>20?Math.ceil(weight-20)*0.1:0);
+        const oRate = overLen>0 ? 0.20 : 0;
+        let fare = base * (1 + wRate + oRate);
+        if (surchRate > 0) fare = fare * (1 + surchRate);
+        if (isRound) fare = round100(fare);
+        return Math.round(fare);
+    }
+
+    const results = [];
+    originList.forEach(o => {
+        if (!db[o.type]) return;
+        const match = db[o.type].find(item => {
+            const full = `${item.s} ${item.g||''} ${item.e}`.replace(/\s+/g,'');
+            return full.includes(searchKeyword) || searchKeyword.includes(item.e.replace(/\s+/g,''));
+        });
+        if (!match) return;
+
+        const safe40 = calcFare(match.p40s, 0, weight, overLen, isRound, true);
+        const safe20 = calcFare(match.p20s, 0, weight, overLen, isRound, false);
+        const q40s = calcFare(match.p40s, surchRate, weight, overLen, isRound, true);
+        const q20s = calcFare(match.p20s, surchRate, weight, overLen, isRound, false);
+        const margin40 = q40s - calcFare(match.p40t, surchRate, weight, overLen, isRound, true);
+        const margin20 = q20s - calcFare(match.p20t, surchRate, weight, overLen, isRound, false);
+        const q40 = discount > 0 ? Math.round(q40s - margin40 * discount) : q40s;
+        const q20 = discount > 0 ? Math.round(q20s - margin20 * discount) : q20s;
+
+        results.push({
+            type: o.type, label: o.label,
+            dist: match.d, dest: `${match.s} ${match.g||''} ${match.e}`.trim(),
+            eraLabel: currentEra === 2 ? '26년 8월' : '26년 2월',
+            q20, q40, safe20: q40s, safe40: q40s,
+            p20s: match.p20s, p40s: match.p40s,
+            p20t: match.p20t, p40t: match.p40t,
+            surchText, discount, isRound,
+            hasSurcharge: checkedSurcharges.length > 0,
+        });
+    });
+
+    if (!results.length) { alert('해당 행선지의 운임 데이터가 없는 거점이 있습니다.'); return; }
+
+    // 부제목
+    const conditions = [];
+    conditions.push(currentEra === 2 ? '26년 8월' : '26년 2월');
+    if (checkedSurcharges.length) conditions.push(surchText);
+    if (discount > 0) conditions.push(`쉐어율 ${Math.round(discount*100)}%`);
+    document.getElementById('allOriginSubTitle').textContent = `${results[0].dest} | ${conditions.join(' / ')}`;
+
+    // 테이블 렌더링
+    const wrap = document.getElementById('allOriginTableWrap');
+    const rows = results.map((r,i) => `
+        <tr>
+            <td><input type="checkbox" class="origin-check" id="oriChk_${i}" checked> <strong style="color:#1e3a8a;">${r.label}</strong></td>
+            <td>${r.dist}km</td>
+            <td>${r.safe20.toLocaleString()}원</td>
+            <td class="all-origin-amt">${r.q20.toLocaleString()}원</td>
+            <td>${r.safe40.toLocaleString()}원</td>
+            <td class="all-origin-amt">${r.q40.toLocaleString()}원</td>
+        </tr>`).join('');
+
+    wrap.innerHTML = `
+        <table class="all-origin-table">
+            <thead><tr>
+                <th style="text-align:left;">거점</th>
+                <th>거리</th>
+                <th>20FT 안전운임</th>
+                <th>20FT 견적운임</th>
+                <th>40FT 안전운임</th>
+                <th>40FT 견적운임</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+
+    window._allOriginResults = results;
+    document.getElementById('allOriginModal').classList.add('open');
+}
+
+function closeAllOriginModal() {
+    document.getElementById('allOriginModal').classList.remove('open');
+}
+
+function closeAllOriginOutside(e) {
+    if (e.target === document.getElementById('allOriginModal')) closeAllOriginModal();
+}
+
+function getCheckedOrigins() {
+    return (window._allOriginResults || []).filter((r,i) =>
+        document.getElementById(`oriChk_${i}`)?.checked
+    );
+}
+
+function allOriginAddToCart() {
+    const checked = getCheckedOrigins();
+    if (!checked.length) { alert('거점을 선택해주세요.'); return; }
+    checked.forEach(r => {
+        cartItems.push({
+            origin: r.label,
+            dest: r.dest,
+            dist: r.dist,
+            eraLabel: r.eraLabel,
+            q20: r.q20, q40: r.q40,
+            safe20: r.p20s, safe40: r.p40s,
+            discount: r.discount,
+            surchargeText: r.surchText,
+            hasSurcharge: r.hasSurcharge,
+            isRoundFare: r.isRound,
+            isRoundQuote: r.isRound,
+            isRoundDetail: r.isRound,
+            clientName: window._currentClientName || '',
+            workAddr: window._currentWorkAddr || '',
+        });
+    });
+    updateCartBadge();
+    closeAllOriginModal();
+    alert(`✅ ${checked.length}개 거점이 견적 카트에 담겼습니다.`);
+}
+
+function allOriginCopyQuote() {
+    const checked = getCheckedOrigins();
+    if (!checked.length) { alert('거점을 선택해주세요.'); return; }
+    const lines = checked.map(r =>
+        `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${r.q20.toLocaleString()}원 / 40FT: ${r.q40.toLocaleString()}원`
+    ).join('\n\n');
+    navigator.clipboard.writeText(lines).then(() => alert('✅ 복사되었습니다.'));
+}
+
+function allOriginCopyCarrier() {
+    const checked = getCheckedOrigins();
+    if (!checked.length) { alert('거점을 선택해주세요.'); return; }
+    const lines = checked.map(r => {
+        const t40 = calcCarrierFare(r.p40t, r);
+        const t20 = calcCarrierFare(r.p20t, r);
+        return `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${t20.toLocaleString()}원 / 40FT: ${t40.toLocaleString()}원`;
+    }).join('\n\n');
+    navigator.clipboard.writeText(lines).then(() => alert('✅ 운수사간 복사되었습니다.'));
+}
+
+function calcCarrierFare(base, r) {
+    const weight = parseFloat(document.getElementById('weightVal')?.value)||0;
+    const overLen = parseFloat(document.getElementById('overLength')?.value)||0;
+    const is40 = base === r.p40t;
+    const wRate = is40?(weight>23?Math.ceil(weight-23)*0.1:0):(weight>20?Math.ceil(weight-20)*0.1:0);
+    const oRate = overLen>0?0.20:0;
+    let fare = base*(1+wRate+oRate);
+    if (r.hasSurcharge) fare = fare*(1+calcSurchRateFromText(r.surchText));
+    if (r.isRound) fare = Math.round(fare/100)*100;
+    return Math.round(fare);
+}
+
+function calcSurchRateFromText(text) {
+    if (!text || text==='-') return 0;
+    const map = {'심야':0.2,'공휴일':0.2,'위험물':0.3,'화약':1.0,'방사성':2.0,'탱크':0.3,'플렉시액체':0.2,'플렉시분말':0.1,'냉동가동':0.3,'덤프':0.25,'통행제한':0.3,'험로오지':0.2};
+    const rates = Object.entries(map).filter(([k])=>text.includes(k)).map(([,v])=>v);
+    if (!rates.length) return 0;
+    const sorted = [...rates].sort((a,b)=>b-a);
+    let total = sorted[0];
+    for (let i=1;i<Math.min(sorted.length,3);i++) total+=sorted[i]*0.5;
+    return total;
+}
+
 // ─── 이력 목록 렌더링 ───────────────────────────────
 function renderHistoryList() {
     const hist = getHistoryData();
@@ -35846,6 +36085,28 @@ function saveRequoteAsNew() {
 </script>
 
 
+
+
+<!-- 전 거점 비교 모달 -->
+<div id="allOriginModal" class="all-origin-overlay" onclick="closeAllOriginOutside(event)">
+  <div class="all-origin-modal">
+    <div class="all-origin-header">
+      <div>
+        <div style="font-weight:700; font-size:1rem;">🗺️ 전 거점 운임 비교</div>
+        <div id="allOriginSubTitle" style="font-size:0.8rem; opacity:0.85; margin-top:2px;"></div>
+      </div>
+      <button onclick="closeAllOriginModal()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:16px; overflow-x:auto;">
+      <div id="allOriginTableWrap"></div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <button onclick="allOriginAddToCart()" style="flex:1; min-width:140px; padding:10px; background:#1e3a8a; color:white; border:none; border-radius:8px; font-size:0.88rem; font-weight:700; cursor:pointer;">🛒 선택한 거점 카트 담기</button>
+        <button onclick="allOriginCopyQuote()" style="flex:1; min-width:140px; padding:10px; background:#1e293b; color:white; border:none; border-radius:8px; font-size:0.88rem; font-weight:700; cursor:pointer;">📋 견적 내용 복사</button>
+        <button onclick="allOriginCopyCarrier()" style="flex:1; min-width:140px; padding:10px; background:#2563eb; color:white; border:none; border-radius:8px; font-size:0.88rem; font-weight:700; cursor:pointer;">🚚 운수사간 복사</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- 이력 수정 모달 -->
 <div id="editHistModal" class="edit-hist-overlay" onclick="closeEditHistOutside(event)">
