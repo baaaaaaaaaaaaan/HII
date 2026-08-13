@@ -33201,10 +33201,11 @@ function calculateFare() {
 
     // 2. 할증 적용된 고시운임 기준으로 견적가 산출
     // fq = 할증 반영 + 사사오입 적용된 최종 고시운임 (화면 표시값과 동일)
-    const fq40s = isRoundFare ? round1000(currentItem.p40s * (1 + res40.total)) : currentItem.p40s * (1 + res40.total);
-    const fq40t = isRoundFare ? round1000(currentItem.p40t * (1 + res40.total)) : currentItem.p40t * (1 + res40.total);
-    const fq20s = isRoundFare ? round1000(currentItem.p20s * (1 + res20.total)) : currentItem.p20s * (1 + res20.total);
-    const fq20t = isRoundFare ? round1000(currentItem.p20t * (1 + res20.total)) : currentItem.p20t * (1 + res20.total);
+    // 쉐어율 계산을 위해 원본값 사용 (사사오입은 최종 q40/q20에만 적용)
+    const fq40s = currentItem.p40s * (1 + res40.total);
+    const fq40t = currentItem.p40t * (1 + res40.total);
+    const fq20s = currentItem.p20s * (1 + res20.total);
+    const fq20t = currentItem.p20t * (1 + res20.total);
 
     // 마진 = 청구 - 하불, 쉐어율만큼 할인
     const margin40 = fq40s - fq40t;
@@ -33212,12 +33213,9 @@ function calculateFare() {
 
     // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
     // 할증 기준: 원본 고시운임 (쉐어율 적용)
-    const surchargeBase40 = (isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
-        - ((isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
-         - (isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t)) * discount;
-    const surchargeBase20 = (isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
-        - ((isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
-         - (isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t)) * discount;
+    // 쉐어율 계산 시 원본 고시운임으로 계산 (사사오입은 최종값에만 적용)
+    const surchargeBase40 = fq40s - (fq40s - fq40t) * discount;
+    const surchargeBase20 = fq20s - (fq20s - fq20t) * discount;
 
     // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
     function calcDetailItems(base, items, roundFn) {
@@ -34131,10 +34129,11 @@ function calculateFare() {
 
     // 2. 할증 적용된 고시운임 기준으로 견적가 산출
     // fq = 할증 반영 + 사사오입 적용된 최종 고시운임 (화면 표시값과 동일)
-    const fq40s = isRoundFare ? round1000(currentItem.p40s * (1 + res40.total)) : currentItem.p40s * (1 + res40.total);
-    const fq40t = isRoundFare ? round1000(currentItem.p40t * (1 + res40.total)) : currentItem.p40t * (1 + res40.total);
-    const fq20s = isRoundFare ? round1000(currentItem.p20s * (1 + res20.total)) : currentItem.p20s * (1 + res20.total);
-    const fq20t = isRoundFare ? round1000(currentItem.p20t * (1 + res20.total)) : currentItem.p20t * (1 + res20.total);
+    // 쉐어율 계산을 위해 원본값 사용 (사사오입은 최종 q40/q20에만 적용)
+    const fq40s = currentItem.p40s * (1 + res40.total);
+    const fq40t = currentItem.p40t * (1 + res40.total);
+    const fq20s = currentItem.p20s * (1 + res20.total);
+    const fq20t = currentItem.p20t * (1 + res20.total);
 
     // 마진 = 청구 - 하불, 쉐어율만큼 할인
     const margin40 = fq40s - fq40t;
@@ -34142,12 +34141,9 @@ function calculateFare() {
 
     // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
     // 할증 기준: 원본 고시운임 (쉐어율 적용)
-    const surchargeBase40 = (isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
-        - ((isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s)
-         - (isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t)) * discount;
-    const surchargeBase20 = (isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
-        - ((isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s)
-         - (isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t)) * discount;
+    // 쉐어율 계산 시 원본 고시운임으로 계산 (사사오입은 최종값에만 적용)
+    const surchargeBase40 = fq40s - (fq40s - fq40t) * discount;
+    const surchargeBase20 = fq20s - (fq20s - fq20t) * discount;
 
     // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
     function calcDetailItems(base, items, roundFn) {
