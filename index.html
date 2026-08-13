@@ -33237,8 +33237,11 @@ function calculateFare() {
     const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
-    const detail40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
-    const detail20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
+    // 상세내역은 체크박스 할증만 (중량/활대는 fq40s에 이미 포함)
+    const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
+    const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
+    const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
+    const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
@@ -34165,8 +34168,11 @@ function calculateFare() {
     const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
-    const detail40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
-    const detail20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
+    // 상세내역은 체크박스 할증만 (중량/활대는 fq40s에 이미 포함)
+    const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
+    const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
+    const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
+    const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
