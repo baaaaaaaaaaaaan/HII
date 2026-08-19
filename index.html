@@ -33237,16 +33237,20 @@ function calculateFare() {
     const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
-    // 상세내역은 체크박스 할증만 (중량/활대는 fq40s에 이미 포함)
+    // 상세내역 표시용: 전체 items (중량/활대 포함)
+    // 금액 계산용: 체크박스 할증만 (중량/활대는 fq40s에 이미 포함되어 제외)
     const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
     const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
+    // 표시용 상세내역은 전체 items로 별도 계산
+    const detailDisplay40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
+    const detailDisplay20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
     let uiDetails40 = [], copyDetails40 = [];
-    detail40.items.forEach(({ item, applyRate, amt }) => {
+    detailDisplay40.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         const pctLabel = (detail40.items.indexOf({item,applyRate,amt}) === 0 || applyRate === item.rate) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
@@ -33255,7 +33259,7 @@ function calculateFare() {
     });
 
     let uiDetails20 = [], copyDetails20 = [];
-    detail20.items.forEach(({ item, applyRate, amt }) => {
+    detailDisplay20.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         uiDetails20.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
@@ -33263,8 +33267,9 @@ function calculateFare() {
     });
 
     // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
-    let q40 = surchargeBase40 + detailAmt40;
-    let q20 = surchargeBase20 + detailAmt20;
+    // detailAmt는 표시용만 - 운임은 surchargeBase에 이미 할증 포함
+    let q40 = surchargeBase40;
+    let q20 = surchargeBase20;
     if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
     else { q40 = Math.round(q40); q20 = Math.round(q20); }
 
@@ -33306,7 +33311,7 @@ function calculateFare() {
     document.getElementById('tableR20')?.innerText && (document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`);
 
     // 견적가/운수사간/위탁 상세 표시
-    const hasSurch = detailAmt40 > 0 || detailAmt20 > 0;
+    const hasSurch = detailDisplay40.totalAmt > 0 || detailDisplay20.totalAmt > 0;
     // 상세내역 섹션 표시/숨김
     document.getElementById('detailTitleWrap').style.display = hasSurch ? '' : 'none';
     document.getElementById('detailTableWrap').style.display = hasSurch ? '' : 'none';
@@ -34168,16 +34173,20 @@ function calculateFare() {
     const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
-    // 상세내역은 체크박스 할증만 (중량/활대는 fq40s에 이미 포함)
+    // 상세내역 표시용: 전체 items (중량/활대 포함)
+    // 금액 계산용: 체크박스 할증만 (중량/활대는 fq40s에 이미 포함되어 제외)
     const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
     const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
+    // 표시용 상세내역은 전체 items로 별도 계산
+    const detailDisplay40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
+    const detailDisplay20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
     let uiDetails40 = [], copyDetails40 = [];
-    detail40.items.forEach(({ item, applyRate, amt }) => {
+    detailDisplay40.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         const pctLabel = (detail40.items.indexOf({item,applyRate,amt}) === 0 || applyRate === item.rate) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
@@ -34186,7 +34195,7 @@ function calculateFare() {
     });
 
     let uiDetails20 = [], copyDetails20 = [];
-    detail20.items.forEach(({ item, applyRate, amt }) => {
+    detailDisplay20.items.forEach(({ item, applyRate, amt }) => {
         const textPct = `${(item.rate * 100).toFixed(0)}%`;
         const applyPct = `${(applyRate * 100).toFixed(0)}%`;
         uiDetails20.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
@@ -34194,8 +34203,9 @@ function calculateFare() {
     });
 
     // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
-    let q40 = surchargeBase40 + detailAmt40;
-    let q20 = surchargeBase20 + detailAmt20;
+    // detailAmt는 표시용만 - 운임은 surchargeBase에 이미 할증 포함
+    let q40 = surchargeBase40;
+    let q20 = surchargeBase20;
     if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
     else { q40 = Math.round(q40); q20 = Math.round(q20); }
 
@@ -34237,7 +34247,7 @@ function calculateFare() {
     document.getElementById('tableR20')?.innerText && (document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`);
 
     // 견적가/운수사간/위탁 상세 표시
-    const hasSurch = detailAmt40 > 0 || detailAmt20 > 0;
+    const hasSurch = detailDisplay40.totalAmt > 0 || detailDisplay20.totalAmt > 0;
     // 상세내역 섹션 표시/숨김
     document.getElementById('detailTitleWrap').style.display = hasSurch ? '' : 'none';
     document.getElementById('detailTableWrap').style.display = hasSurch ? '' : 'none';
