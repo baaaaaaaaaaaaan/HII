@@ -35546,12 +35546,12 @@ function openAllOriginCmp() {
     if (!currentItem) { alert('먼저 행선지를 검색해주세요.'); return; }
 
     const db = getDatabase();
-    const searchVal = document.getElementById('mainSearchInput').value.trim();
-    const searchKeyword = searchVal.replace(/\s+/g, '');
+    // currentItem의 행정구역 정보로 검색 (장소명이 아닌 행정구역명)
+    const searchKeyword = `${currentItem.s||''}${currentItem.g||''}${currentItem.e||''}`.replace(/\s+/g,'');
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
     const overLen = parseFloat(document.getElementById('overLength').value) || 0;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-    const isRound = isRoundQuote; // 사사오입 설정 연동
+    const isRound = isRoundQuote || isRoundFare; // 사사오입 설정 연동
 
     // 현재 era 거점 목록
     const era = currentEra;
