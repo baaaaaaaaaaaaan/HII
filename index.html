@@ -35608,7 +35608,7 @@ function openAllOriginCmp() {
         const oRate = overLen>0 ? 0.20 : 0;
         let fare = base * (1 + wRate + oRate);
         if (surchRate > 0) fare = fare * (1 + surchRate);
-        if (isRound) fare = round100(fare);
+        if (isRound) return Math.round(fare / 1000) * 1000;
         return Math.round(fare);
     }
 
