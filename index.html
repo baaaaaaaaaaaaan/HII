@@ -35551,7 +35551,7 @@ function openAllOriginCmp() {
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
     const overLen = parseFloat(document.getElementById('overLength').value) || 0;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-    const isRound = document.getElementById('btnRoundAll')?.classList.contains('active') || false;
+    const isRound = isRoundQuote; // 사사오입 설정 연동
 
     // 현재 era 거점 목록
     const era = currentEra;
@@ -35614,12 +35614,18 @@ function openAllOriginCmp() {
 
     const results = [];
     originList.forEach(o => {
-        if (!db[o.type]) return;
+        if (!db[o.type]) {
+            results.push({ type: o.type, label: o.label, noData: true });
+            return;
+        }
         const match = db[o.type].find(item => {
             const full = `${item.s} ${item.g||''} ${item.e}`.replace(/\s+/g,'');
             return full.includes(searchKeyword) || searchKeyword.includes(item.e.replace(/\s+/g,''));
         });
-        if (!match) return;
+        if (!match) {
+            results.push({ type: o.type, label: o.label, noData: true });
+            return;
+        }
 
         const safe40 = calcFare(match.p40s, 0, weight, overLen, isRound, true);
         const safe20 = calcFare(match.p20s, 0, weight, overLen, isRound, false);
@@ -35642,7 +35648,7 @@ function openAllOriginCmp() {
         });
     });
 
-    if (!results.length) { alert('해당 행선지의 운임 데이터가 없는 거점이 있습니다.'); return; }
+    // 결과 없으면 모든 거점 '-' 표시로 진행
 
     // 부제목
     const conditions = [];
@@ -35653,7 +35659,13 @@ function openAllOriginCmp() {
 
     // 테이블 렌더링
     const wrap = document.getElementById('allOriginTableWrap');
-    const rows = results.map((r,i) => `
+    const rows = results.map((r,i) => {
+        if (r.noData) return `
+        <tr style="opacity:0.4;">
+            <td><input type="checkbox" class="origin-check" id="oriChk_${i}" disabled> <strong style="color:#94a3b8;">${r.label}</strong></td>
+            <td colspan="5" style="text-align:center;color:#94a3b8;font-size:0.82rem;">운임 데이터 없음</td>
+        </tr>`;
+        return `
         <tr>
             <td><input type="checkbox" class="origin-check" id="oriChk_${i}" checked> <strong style="color:#1e3a8a;">${r.label}</strong></td>
             <td>${r.dist}km</td>
@@ -35661,7 +35673,8 @@ function openAllOriginCmp() {
             <td class="all-origin-amt">${r.q20.toLocaleString()}원</td>
             <td>${r.safe40.toLocaleString()}원</td>
             <td class="all-origin-amt">${r.q40.toLocaleString()}원</td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
 
     wrap.innerHTML = `
         <table class="all-origin-table">
@@ -35690,7 +35703,7 @@ function closeAllOriginOutside(e) {
 
 function getCheckedOrigins() {
     return (window._allOriginResults || []).filter((r,i) =>
-        document.getElementById(`oriChk_${i}`)?.checked
+        !r.noData && document.getElementById(`oriChk_${i}`)?.checked
     );
 }
 
