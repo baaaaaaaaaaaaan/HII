@@ -673,17 +673,18 @@
                 <span>📊 화주 제출용 견적 설정</span>
                 <button type="button" id="btnRoundQuote" class="round-toggle-btn" onclick="toggleRound('quote')">견적가 사사오입 OFF</button>
             </div>
-            <div class="quote-row">
+            <div class="quote-row" style="justify-content:space-between; align-items:center;">
                 <div style="font-size:0.8rem; color:#14532d;">쉐어율: <input type="number" id="marginDiscount" class="quote-input" value="0" oninput="calculateFare()"> %</div>
+                <button type="button" id="btnInterView" class="round-toggle-btn" onclick="toggleInterView()">🚚 운수사간 보기</button>
             </div>
             <div class="quote-grid">
                 <div class="quote-card">
-                    <div class="quote-card-title">20FT 최종청구액</div>
+                    <div class="quote-card-title" id="quoteTitle20">20FT 최종청구액</div>
                     <div id="q20" class="quote-card-price">-</div>
                     <div id="m20" class="margin-badge"></div>
                 </div>
                 <div class="quote-card">
-                    <div class="quote-card-title">40FT 최종청구액</div>
+                    <div class="quote-card-title" id="quoteTitle40">40FT 최종청구액</div>
                     <div id="q40" class="quote-card-price">-</div>
                     <div id="m40" class="margin-badge"></div>
                 </div>
@@ -693,11 +694,6 @@
                 <button class="copy-btn copy-btn-flex" id="copyBtn20" onclick="copyQuoteText('20')" style="margin-top:0; padding:12px 10px; flex-shrink:0; min-width:52px;">20FT</button>
                 <button class="copy-btn copy-btn-flex" id="copyBtn40" onclick="copyQuoteText('40')" style="margin-top:0; padding:12px 10px; flex-shrink:0; min-width:52px;">40FT</button>
             </div>
-            <div id="carrierBtnWrap" style="display:flex; gap:6px; margin-top:10px; width:100%;">
-                <button class="copy-btn copy-btn-flex" id="copyCarrierBtn" onclick="copyCarrierFareText()" style="margin-top:0; flex:1; background:#2563eb;">🚚 운수사 거래용 복사</button>
-                <button class="copy-btn copy-btn-flex" id="copyCarrierBtn20" onclick="copyCarrierFareText('20')" style="margin-top:0; padding:12px 10px; flex-shrink:0; min-width:52px; background:#2563eb;">20FT</button>
-                <button class="copy-btn copy-btn-flex" id="copyCarrierBtn40" onclick="copyCarrierFareText('40')" style="margin-top:0; padding:12px 10px; flex-shrink:0; min-width:52px; background:#2563eb;">40FT</button>
-            </div>
             <button id="cmpModalBtn" class="copy-btn copy-btn-full" onclick="openCmpModal()" style="margin-top:8px; background:#475569;">📊 2월 / 8월 운임 비교</button>
             <button id="allOriginCmpBtn" class="copy-btn copy-btn-full" onclick="openAllOriginCmp()" style="margin-top:6px; background:#0f766e;">🗺️ 전 거점 운임 비교</button>
             <button class="copy-btn copy-btn-full" onclick="addToCart()" style="margin-top:8px; background:#166534; font-size:0.95rem;">🛒 견적 담기</button>
@@ -706,7 +702,7 @@
             </div>
 
         <div class="detail-table-title" id="detailTitleWrap" style="display:none;">
-            <span>📝 적용 할증 상세내역 (견적가 기준)</span>
+            <span id="detailTitleText">📝 적용 할증 상세내역 (견적가 기준)</span>
             <button type="button" id="btnRoundDetail" class="round-toggle-btn" style="margin-left: auto;" onclick="toggleRound('detail')">상세금액 사사오입 OFF</button>
         </div>
         <table class="detail-table" id="detailTableWrap" style="display:none;">
@@ -32533,6 +32529,8 @@ let isRoundQuote = false;
 let isRoundDetail = false;
 // 운수사 간 거래 텍스트 생성을 위해 할증전 원본 운수사 운임 보관 변수
 let currentCarrierBase = { b20: 0, b40: 0 };
+// 최종청구액 박스에 화주 청구액 대신 운수사간 거래 금액을 보여줄지 여부
+let showInterView = false;
 
 function toggleDropdown() {
     document.getElementById('customSelect').classList.toggle('open');
@@ -32552,8 +32550,6 @@ function selectOrigin(type, text) {
         // detailTitleWrap/detailTableWrap은 runSearch 결과에 따라 별도 제어 (여기서 복원하지 않음)
         const roundAllBtn = document.getElementById('btnRoundAll');
         if (roundAllBtn) roundAllBtn.style.display = '';
-        const carrierWrap = document.getElementById('carrierBtnWrap');
-        if (carrierWrap) { carrierWrap.style.display = 'flex'; carrierWrap.style.width = '100%'; }
         const whCard = document.getElementById('whResultCard');
         if (whCard) whCard.remove();
     }
@@ -32959,610 +32955,6 @@ function openMapModal() {
     document.getElementById('kakaoMapContainer').style.display = 'block';
     document.getElementById('kakaoRoadviewContainer').style.display = 'none';
     setTimeout(() => renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName), 80);
-}
-
-function closeMapModal() {
-    document.getElementById('mapModal').classList.remove('open');
-}
-
-function closeMapModalOutside(e) {
-    if (e.target === document.getElementById('mapModal')) closeMapModal();
-}
-
-function renderKakaoMap(lat, lng, placeName) {
-    const mapEl = document.getElementById('kakaoMapContainer');
-    const rvEl = document.getElementById('kakaoRoadviewContainer');
-    mapEl.style.display = 'block';
-    rvEl.style.display = 'none';
-
-    if (typeof kakao === 'undefined' || !kakao.maps) return;
-    const center = new kakao.maps.LatLng(lat, lng);
-
-    if (!kakaoMapInstance) {
-        kakaoMapInstance = new kakao.maps.Map(mapEl, { center: center, level: 4 });
-    } else {
-        kakaoMapInstance.relayout();
-        kakaoMapInstance.setCenter(center);
-    }
-
-    if (kakaoMarkerInstance) kakaoMarkerInstance.setMap(null);
-    kakaoMarkerInstance = new kakao.maps.Marker({ position: center, map: kakaoMapInstance });
-
-    if (placeName) {
-        const infowindow = new kakao.maps.InfoWindow({ content: `<div style="padding:4px 8px;font-size:12px;">${placeName}</div>` });
-        infowindow.open(kakaoMapInstance, kakaoMarkerInstance);
-    }
-}
-
-function renderKakaoRoadview(lat, lng) {
-    const rvEl = document.getElementById('kakaoRoadviewContainer');
-    if (typeof kakao === 'undefined' || !kakao.maps) return;
-
-    if (!kakaoRoadviewClient) kakaoRoadviewClient = new kakao.maps.RoadviewClient();
-
-    const pos = new kakao.maps.LatLng(lat, lng);
-
-    kakaoRoadviewClient.getNearestPanoId(pos, 50, function(panoId) {
-        if (panoId === null) {
-            rvEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:0.85rem;">이 위치는 로드뷰를 지원하지 않습니다</div>';
-            kakaoRoadviewInstance = null;
-            return;
-        }
-        // 매번 새로 인스턴스 생성 (모달 open/close 반복 시 컨테이너가 재활용되므로)
-        kakaoRoadviewInstance = new kakao.maps.Roadview(rvEl);
-        setTimeout(() => {
-            kakaoRoadviewInstance.relayout();
-            kakaoRoadviewInstance.setPanoId(panoId, pos);
-        }, 150);
-    });
-}
-
-function toggleMapView(type) {
-    if (!currentMapCoord) return;
-    document.getElementById('btnShowMap').classList.toggle('active', type === 'map');
-    document.getElementById('btnShowRoadview').classList.toggle('active', type === 'roadview');
-
-    const mapEl = document.getElementById('kakaoMapContainer');
-    const rvEl = document.getElementById('kakaoRoadviewContainer');
-
-    if (type === 'map') {
-        rvEl.style.display = 'none';
-        mapEl.style.display = 'block';
-        renderKakaoMap(currentMapCoord.lat, currentMapCoord.lng, currentMapCoord.placeName);
-    } else {
-        mapEl.style.display = 'none';
-        rvEl.style.display = 'block';
-        renderKakaoRoadview(currentMapCoord.lat, currentMapCoord.lng);
-    }
-}
-
-// 카카오에서 받은 주소(시/도 시/군/구 동/읍/면 ...)를 기존 운임 DB(s, g, e)와 매칭
-function matchDatabaseByAddress(fullAddress) {
-    const tokens = fullAddress.split(/\s+/).filter(Boolean);
-    const list = getDatabase()[currentType] || [];
-
-    // 1) 뒤에서부터 점점 넓혀가며 매칭 (최소 2토큰)
-    for (let take = tokens.length; take >= 2; take--) {
-        const partial = tokens.slice(0, take).join('').replace(/\s+/g, '');
-        const found = list.find(it => {
-            const dbFull = `${it.s}${it.g || ''}${it.e}`.replace(/\s+/g, '');
-            return dbFull.includes(partial) || partial.includes(dbFull);
-        });
-        if (found) return found;
-    }
-
-    // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치만 허용
-    const dongToken = [...tokens].reverse().find(t => /(동|읍|면)$/.test(t));
-    if (dongToken) {
-        const found = list.find(it => it.e === dongToken);
-        if (found) return found;
-    }
-
-    return null;
-}
-
-function showKakaoMatchNotice(success) {
-    let notice = document.getElementById('kakaoMatchNotice');
-    if (!notice) {
-        notice = document.createElement('div');
-        notice.id = 'kakaoMatchNotice';
-        notice.className = 'kakao-suggest-nomatch';
-        document.getElementById('mainSearchInput').insertAdjacentElement('afterend', notice);
-    }
-    if (success) {
-        notice.style.color = '#16a34a';
-        notice.innerText = '✔ 운임 데이터와 매칭되었습니다';
-    } else {
-        notice.style.color = '#dc2626';
-        notice.innerText = '⚠ 해당 행선지는 등록된 운임 데이터에 없습니다. 다른 명칭으로 다시 검색해보세요.';
-    }
-}
-
-// 바깥 영역 클릭 시 자동완성 목록 닫기
-window.addEventListener('click', function(e) {
-    const box = document.querySelector('.search-box');
-    if (box && !box.contains(e.target)) {
-        const listEl = document.getElementById('kakaoSuggestList');
-        if (listEl) listEl.classList.remove('open');
-    }
-});
-
-function toggleRound(target) {
-    if (target === 'all') {
-        // 셋 중 하나라도 OFF면 전체 ON, 모두 ON이면 전체 OFF
-        const allOn = isRoundFare && isRoundQuote && isRoundDetail;
-        isRoundFare = isRoundQuote = isRoundDetail = !allOn;
-        const allBtn = document.getElementById('btnRoundAll');
-        allBtn.innerText = isRoundFare ? '전체 사사오입 ON' : '전체 사사오입 OFF';
-        allBtn.classList.toggle('active', isRoundFare);
-        document.getElementById('btnRoundFare').innerText = isRoundFare ? '고시운임 사사오입 ON' : '고시운임 사사오입 OFF';
-        document.getElementById('btnRoundFare').classList.toggle('active', isRoundFare);
-        document.getElementById('btnRoundQuote').innerText = isRoundFare ? '견적가 사사오입 ON' : '견적가 사사오입 OFF';
-        document.getElementById('btnRoundQuote').classList.toggle('active', isRoundFare);
-        document.getElementById('btnRoundDetail').innerText = isRoundFare ? '상세금액 사사오입 ON' : '상세금액 사사오입 OFF';
-        document.getElementById('btnRoundDetail').classList.toggle('active', isRoundFare);
-    } else if (target === 'fare') {
-        isRoundFare = !isRoundFare;
-        const btn = document.getElementById('btnRoundFare');
-        if (isRoundFare) { btn.innerText = "고시운임 사사오입 ON"; btn.classList.add('active'); }
-        else { btn.innerText = "고시운임 사사오입 OFF"; btn.classList.remove('active'); }
-    } else if (target === 'quote') {
-        isRoundQuote = !isRoundQuote;
-        const btn = document.getElementById('btnRoundQuote');
-        if (isRoundQuote) { btn.innerText = "견적가 사사오입 ON"; btn.classList.add('active'); }
-        else { btn.innerText = "견적가 사사오입 OFF"; btn.classList.remove('active'); }
-    } else if (target === 'detail') {
-        isRoundDetail = !isRoundDetail;
-        const btn = document.getElementById('btnRoundDetail');
-        if (isRoundDetail) { btn.innerText = "상세금액 사사오입 ON"; btn.classList.add('active'); }
-        else { btn.innerText = "상세금액 사사오입 OFF"; btn.classList.remove('active'); }
-    }
-    // 개별 버튼 변경 후 전체버튼 상태도 동기화
-    if (target !== 'all') {
-        const allOn = isRoundFare && isRoundQuote && isRoundDetail;
-        const allBtn = document.getElementById('btnRoundAll');
-        allBtn.innerText = allOn ? '전체 사사오입 ON' : '전체 사사오입 OFF';
-        allBtn.classList.toggle('active', allOn);
-    }
-    calculateFare();
-}
-
-function calculateFare() {
-    if(!currentItem) return;
-    const weight = parseFloat(document.getElementById('weightVal').value) || 0;
-    const overLen = parseFloat(document.getElementById('overLength').value) || 0;
-    const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-    const p40WeightRate = weight > 23 ? Math.ceil(weight - 23) * 0.1 : 0;
-    const p20WeightRate = weight > 20 ? Math.ceil(weight - 20) * 0.1 : 0;
-    const oversizeRate = overLen > 0 ? Math.ceil(overLen / 10) * 0.1 : 0;
-    // 복사용을 위해 원본 고시 운수사간 운임 보관
-    currentCarrierBase.b40 = currentItem.p40b;
-    currentCarrierBase.b20 = currentItem.p20b;
-    function getFinalRate(wRate) {
-        let sc = [];
-        document.querySelectorAll('.sc-check:checked').forEach(el => {
-            sc.push({ name: el.dataset.name, rate: parseFloat(el.value) });
-        });
-        if(wRate > 0) sc.push({ name: "중량", rate: wRate });
-        if(oversizeRate > 0) sc.push({ name: "활대", rate: oversizeRate });
-        sc.sort((a, b) => b.rate - a.rate);
-        const top3 = sc.slice(0, 3);
-        
-        let total = 0;
-        top3.forEach((item, idx) => { total += (idx === 0) ? item.rate : (item.rate * 0.5); });
-        return { total, items: top3, originalCount: sc.length };
-    } 
-
-    const res40 = getFinalRate(p40WeightRate);
-    const res20 = getFinalRate(p20WeightRate);
-
-    lastResult.hasSurcharge = (res40.items.length > 0 || res20.items.length > 0);
-    lastResult.isMultiSurcharge = (res40.originalCount >= 2 || res20.originalCount >= 2);
-    // 안내사항: 다수 할증일 때만 표시
-    const noticeEl = document.getElementById('noticeSection');
-    if (noticeEl) noticeEl.style.display = lastResult.isMultiSurcharge ? '' : 'none';
-
-    document.getElementById('resultBox').style.display = 'block';
-    const fullAddr = currentItem.g ?
-        `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
-    document.getElementById('resAddr').innerText = `${fullAddr} (${currentItem.d}km)`;
-    
-    const fmt = (v) => Math.round(v).toLocaleString() + "원";
-    const round1000 = (val) => Math.round(val / 1000) * 1000;
-    const round10 = (val) => Math.round(val / 10) * 10;
-    // 1. 고시운임 계산 (규정: 항목별 100원 사사오입 후 합산)
-    function fareSum(base, items) {
-        let sum = 0;
-        items.forEach((item, idx) => {
-            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
-            sum += Math.round(base * applyRate / 100) * 100;
-        });
-        return base + sum;
-    }
-    let f40t = fareSum(currentItem.p40t, res40.items);
-    let f40b = fareSum(currentItem.p40b, res40.items);
-    let f40s = fareSum(currentItem.p40s, res40.items);
-    let f20t = fareSum(currentItem.p20t, res20.items);
-    let f20b = fareSum(currentItem.p20b, res20.items);
-    let f20s = fareSum(currentItem.p20s, res20.items);
-
-    if (isRoundFare) {
-        f40t = round1000(f40t);
-        f40b = round1000(f40b); f40s = round1000(f40s);
-        f20t = round1000(f20t); f20b = round1000(f20b); f20s = round1000(f20s);
-    }
-
-    document.getElementById('p40t').innerText = fmt(f40t);
-    document.getElementById('p40b').innerText = fmt(f40b);
-    document.getElementById('p40s').innerText = fmt(f40s);
-    document.getElementById('p20t').innerText = fmt(f20t);
-    document.getElementById('p20b').innerText = fmt(f20b);
-    document.getElementById('p20s').innerText = fmt(f20s);
-
-    // 2. 할증 적용된 고시운임 기준으로 견적가 산출
-    // fq = 할증 반영 + 사사오입 적용된 최종 고시운임 (화면 표시값과 동일)
-    // 쉐어율 계산을 위해 원본값 사용 (사사오입은 최종 q40/q20에만 적용)
-    const fq40s = currentItem.p40s * (1 + res40.total);
-    const fq40t = currentItem.p40t * (1 + res40.total);
-    const fq20s = currentItem.p20s * (1 + res20.total);
-    const fq20t = currentItem.p20t * (1 + res20.total);
-
-    // 마진 = 청구 - 하불, 쉐어율만큼 할인
-    const margin40 = fq40s - fq40t;
-    const margin20 = fq20s - fq20t;
-
-    // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
-    // 할증 기준: 원본 고시운임 (쉐어율 적용)
-    // 쉐어율 계산 시 원본 고시운임으로 계산 (사사오입은 최종값에만 적용)
-    const surchargeBase40 = fq40s - (fq40s - fq40t) * discount;
-    const surchargeBase20 = fq20s - (fq20s - fq20t) * discount;
-
-    // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
-    function calcDetailItems(base, items, roundFn) {
-        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
-        const totalAmt = roundFn(base * totalRate);
-        const result = [];
-        let allocated = 0;
-        items.forEach((item, idx) => {
-            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
-            // 항목별 표시 금액: 마지막 항목은 나머지로 처리해 합계 정확히 맞춤
-            let amt = (idx < items.length - 1)
-                ? roundFn(base * applyRate)
-                : totalAmt - allocated;
-            allocated += amt;
-            result.push({ item, applyRate, amt });
-        });
-        return { totalAmt, items: result };
-    }
-    const roundFn40 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
-    const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
-
-    // 상세내역 표시용: 전체 items (중량/활대 포함)
-    // 금액 계산용: 체크박스 할증만 (중량/활대는 fq40s에 이미 포함되어 제외)
-    const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
-    const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
-    const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
-    const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
-    // 표시용 상세내역은 전체 items로 별도 계산
-    const detailDisplay40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
-    const detailDisplay20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
-    const detailAmt40 = detail40.totalAmt;
-    const detailAmt20 = detail20.totalAmt;
-
-    let uiDetails40 = [], copyDetails40 = [];
-    detailDisplay40.items.forEach(({ item, applyRate, amt }) => {
-        const textPct = `${(item.rate * 100).toFixed(0)}%`;
-        const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        const pctLabel = (detail40.items.indexOf({item,applyRate,amt}) === 0 || applyRate === item.rate) ? `${textPct} 반영` : `${textPct} → ${applyPct} 반영`;
-        uiDetails40.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
-        copyDetails40.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
-    });
-
-    let uiDetails20 = [], copyDetails20 = [];
-    detailDisplay20.items.forEach(({ item, applyRate, amt }) => {
-        const textPct = `${(item.rate * 100).toFixed(0)}%`;
-        const applyPct = `${(applyRate * 100).toFixed(0)}%`;
-        uiDetails20.push(`• ${item.name}: +${amt.toLocaleString()}원 (${applyRate === item.rate ? textPct : textPct + ' → ' + applyPct} 반영)`);
-        copyDetails20.push(`     ▪ ${item.name}(${textPct}): ${amt.toLocaleString()}원 / ${applyPct} 반영`);
-    });
-
-    // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
-    // detailAmt는 표시용만 - 운임은 surchargeBase에 이미 할증 포함
-    let q40 = surchargeBase40;
-    let q20 = surchargeBase20;
-    if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
-    else { q40 = Math.round(q40); q20 = Math.round(q20); }
-
-    lastResult.q40 = q40;
-    lastResult.q20 = q20;
-    // base = 할증 전 견적 기준가 (surchargeBase = 쉐어율만 적용, 할증 미포함)
-    lastResult.base40 = isRoundQuote ? round1000(surchargeBase40) : Math.round(surchargeBase40);
-    lastResult.base20 = isRoundQuote ? round1000(surchargeBase20) : Math.round(surchargeBase20);
-    lastResult.rawAmt40 = detailAmt40;
-    lastResult.rawAmt20 = detailAmt20;
-    lastResult.r40 = Math.round(res40.total * 100);
-    lastResult.r20 = Math.round(res20.total * 100);
-    lastResult.surchargeItems = res40.items || [];
-    // 안전운임 = 원본 고시운임(p40s/p20s) 기준 할증 적용값 (쉐어율 적용 전)
-    const safeBase40 = isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s;
-    const safeBase20 = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
-    const safeDetail40 = calcDetailItems(safeBase40, res40.items, roundFn40);
-    const safeDetail20 = calcDetailItems(safeBase20, res20.items, roundFn20);
-    let safe40 = safeBase40 + safeDetail40.totalAmt;
-    let safe20 = safeBase20 + safeDetail20.totalAmt;
-    if (isRoundQuote) { safe40 = round1000(safe40); safe20 = round1000(safe20); }
-    else { safe40 = Math.round(safe40); safe20 = Math.round(safe20); }
-    lastResult.safe40 = safe40;
-    lastResult.safe20 = safe20;
-
-    const textDetail40 = uiDetails40.join('<br>') || '선택된 할증 없음';
-    const textDetail20 = uiDetails20.join('<br>') || '선택된 할증 없음';
-    
-    // 다수 할증일 때 소계 줄 추가
-    if (detail40.items.length > 1) copyDetails40.push(`     = ${detailAmt40.toLocaleString()}원`);
-    if (detail20.items.length > 1) copyDetails20.push(`     = ${detailAmt20.toLocaleString()}원`);
-
-    lastResult.listForCopy40 = copyDetails40.join('\n') || '';
-    lastResult.listForCopy20 = copyDetails20.join('\n') || '';
-
-    // tableR: 실제 계산된 amt 기준으로 실효 할증률 역산해서 표시 (rate 기반 r40과 금액 기반 amt가 사사오입으로 미세 불일치하는 문제 방지)
-    // tableR/tableDetail - 구 요소, 호환성 유지
-    document.getElementById('tableR40')?.innerText && (document.getElementById('tableR40').innerText = detailAmt40 > 0 ? `${lastResult.r40}% (+${detailAmt40.toLocaleString()}원)` : `0% (+0원)`);
-    document.getElementById('tableR20')?.innerText && (document.getElementById('tableR20').innerText = detailAmt20 > 0 ? `${lastResult.r20}% (+${detailAmt20.toLocaleString()}원)` : `0% (+0원)`);
-
-    // 견적가/운수사간/위탁 상세 표시
-    const hasSurch = detailDisplay40.totalAmt > 0 || detailDisplay20.totalAmt > 0;
-    // 상세내역 섹션 표시/숨김
-    document.getElementById('detailTitleWrap').style.display = hasSurch ? '' : 'none';
-    document.getElementById('detailTableWrap').style.display = hasSurch ? '' : 'none';
-    const noSurchHtml = '<span style="color:#94a3b8;font-size:0.75rem;">선택된 할증 없음</span>';
-
-    function buildFareCell(base, items, surTotal) {
-        if (!hasSurch || items.length === 0) return noSurchHtml;
-        const r1k = v => Math.round(v/1000)*1000;
-        const fmtN = v => Math.round(v).toLocaleString();
-        // OFF=100원 기본, ON=1000원 추가 사사오입
-        let itemsHtml = '';
-        const totalRate = items.reduce((s, item, idx) => s + (idx === 0 ? item.rate : item.rate * 0.5), 0);
-        items.forEach((item, idx) => {
-            const applyRate = idx === 0 ? item.rate : item.rate * 0.5;
-            let amt = Math.round(base * applyRate);
-            amt = isRoundDetail ? r1k(amt) : Math.round(amt/100)*100;
-            const origPct = Math.round(item.rate * 100);
-            const applyPct = Math.round(applyRate * 100);
-            const label = origPct !== applyPct ? `${item.name}(${origPct}%→${applyPct}%)` : `${item.name}(${origPct}%)`;
-            itemsHtml += `<div style="color:#6b7280;font-size:0.72rem;margin-top:2px;">${label} +${fmtN(amt)}원</div>`;
-        });
-        // 합계: 총 할증률로 한 번에 100원 사사오입 (규정 방식)
-        const roundFn = v => isRoundDetail ? r1k(v) : Math.round(v/100)*100;
-        const totalSurch = roundFn(base * totalRate);
-        const fareTotal = base + totalSurch;
-        const finalFare = isRoundFare ? r1k(fareTotal) : Math.round(fareTotal);
-        const rateLabel = Math.round(totalRate * 100);
-        const subTotalHtml = items.length > 1
-            ? `<div style="font-size:0.73rem;font-weight:600;color:#b45309;margin-top:3px;padding-top:3px;border-top:0.5px dashed #e2e8f0;">= ${fmtN(totalSurch)}원</div>`
-            : '';
-        return `${itemsHtml}${subTotalHtml}<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:0.5px solid #ddd6fe;"><span style="font-weight:600;color:#1e293b;font-size:0.82rem;">${fmtN(finalFare)}원</span><span style="font-size:0.7rem;color:#2563eb;font-weight:500;background:#eff6ff;padding:1px 6px;border-radius:4px;">+${rateLabel}%</span></div>`;
-    }
-
-    const sur40 = res40.total, sur20 = res20.total;
-    document.getElementById('tableChg20s').innerHTML = buildFareCell(currentItem.p20s, res20.items, sur20);
-    document.getElementById('tableChg40s').innerHTML = buildFareCell(currentItem.p40s, res40.items, sur40);
-    document.getElementById('tableChg20b').innerHTML = buildFareCell(currentItem.p20b, res20.items, sur20);
-    document.getElementById('tableChg40b').innerHTML = buildFareCell(currentItem.p40b, res40.items, sur40);
-    document.getElementById('tableChg20t').innerHTML = buildFareCell(currentItem.p20t, res20.items, sur20);
-    document.getElementById('tableChg40t').innerHTML = buildFareCell(currentItem.p40t, res40.items, sur40);
-
-    // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
-    // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
-    const base40t = isRoundFare ? f40t : Math.round(f40t);
-    const base20t = isRoundFare ? f20t : Math.round(f20t);
-    let rawMargin40 = isRoundQuote ? round1000(q40 - base40t) : Math.round(q40 - base40t);
-    let rawMargin20 = isRoundQuote ? round1000(q20 - base20t) : Math.round(q20 - base20t);
-    
-    let marginRate40 = q40 > 0 ? ((rawMargin40 / q40) * 100).toFixed(1) : "0.0";
-    let marginRate20 = q20 > 0 ? ((rawMargin20 / q20) * 100).toFixed(1) : "0.0";
-
-    document.getElementById('q40').innerText = fmt(q40);
-    // [수정 사항 1] 수익 금액 우측에 마진율 추가 표시
-    document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)} (마진율: ${marginRate40}%)`;
-    document.getElementById('q20').innerText = fmt(q20);
-    document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)} (마진율: ${marginRate20}%)`;
-}
-
-function copyQuoteText(ft) {
-    if (!currentItem) return;
-    const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
-    const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
-    const originName = document.getElementById('selectedText').innerText;
-    const hasSurcharge = lastResult.hasSurcharge;
-    const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
-
-    function fareBlock(ftType) {
-        const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
-        const q    = ftType === '20' ? lastResult.q20 : lastResult.q40;
-        const amt  = q - base;
-        if (discount > 0) {
-            const safe = ftType === '20' ? lastResult.safe20 : lastResult.safe40;
-            const rPct2 = ftType === '20' ? lastResult.r20 : lastResult.r40;
-            if (hasSurcharge && amt > 0) {
-                const safeAmt = safe - (safe - amt > 0 ? safe - amt : 0);
-                const safeBase2 = safe - amt;
-                return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct2}%) = 청구운임 ${q.toLocaleString()}원\n${ftType}FT │ 안전운임 ${safe.toLocaleString()}원`;
-            }
-            return `${ftType}FT │ 청구운임 ${q.toLocaleString()}원\n${ftType}FT │ 안전운임 ${safe.toLocaleString()}원`;
-        }
-        if (hasSurcharge && amt > 0) {
-            const rPct = ftType === '20' ? lastResult.r20 : lastResult.r40;
-            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
-        }
-        return `${ftType}FT │ ${q.toLocaleString()} 원`;
-    }
-
-    function parseItem(row) {
-        const m = row.match(/▪\s*(.+\(\d+%\))\s*:\s*([\d,]+)원\s*\/\s*(\d+%)\s*반영/);
-        return m ? { label: m[1], amt: m[2], applied: m[3] } : null;
-    }
-    function displayLabel(item) {
-        const origPct = item.label.match(/\((\d+%)\)$/);
-        if (origPct && origPct[1] !== item.applied)
-            return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
-        return item.label;
-    }
-
-    // 운임 라인
-    let fareLine;
-    if (!ft) fareLine = fareBlock('20') + '\n\n' + fareBlock('40');
-    else fareLine = fareBlock(ft);
-
-    let text = `[ 운임 견적 안내 ]
-▶ 출발  ${originName}
-◆ 도착  ${fullAddr}
-
-${fareLine}`;
-
-    // 할증 내역
-    if (hasSurcharge && lastResult.listForCopy40) {
-        const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
-        const items20 = lastResult.listForCopy20.split('\n').filter(Boolean);
-        text += `\n\n[ 할증 내역 ]`;
-        items40.forEach((row40, i) => {
-            const p40 = parseItem(row40);
-            const p20 = parseItem(items20[i] || '');
-            // 소계 줄 (= X원 형태)
-            if (row40.trim().startsWith('=')) {
-                const sub40 = row40.trim().replace(/[^\d,]/g, '');
-                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
-                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
-                else if (ft === '20') text += `\n  합계  +${sub20}원`;
-                else text += `\n  합계  +${sub40}원`;
-                return;
-            }
-            if (!p40) return;
-            if (!ft) {
-                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
-            } else if (ft === '20') {
-                text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
-            } else {
-                text += `\n- ${displayLabel(p40)} :  +${p40.amt}원`;
-            }
-        });
-        text += `\n`;
-    }
-
-    const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
-    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel})`;
-
-    if (lastResult.isMultiSurcharge) {
-        text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
-    }
-
-    const btnId = ft ? `copyBtn${ft}` : 'copyBtn';
-    const origLabel = ft ? `${ft}FT` : '📋 견적 내용 복사';
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById(btnId);
-        btn.innerText = "✅ 복사 완료!";
-        setTimeout(() => { btn.innerText = origLabel; }, 1500);
-    });
-}
-
-// 운수사간 거래 고시 운임 복사 함수
-function copyCarrierFareText(ft) {
-    if (!currentItem) return;
-    const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
-    const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
-    const hasSurcharge = lastResult.hasSurcharge;
-    const round1000 = (val) => Math.round(val / 1000) * 1000;
-    const originName = document.getElementById('selectedText').innerText;
-
-    let carrier40 = currentCarrierBase.b40 * (1 + (lastResult.r40 / 100));
-    let carrier20 = currentCarrierBase.b20 * (1 + (lastResult.r20 / 100));
-    let base40 = currentCarrierBase.b40;
-    let base20 = currentCarrierBase.b20;
-    if (isRoundFare) {
-        carrier40 = round1000(carrier40); carrier20 = round1000(carrier20);
-        base40 = round1000(base40); base20 = round1000(base20);
-    } else {
-        carrier40 = Math.round(carrier40); carrier20 = Math.round(carrier20);
-        base40 = Math.round(base40); base20 = Math.round(base20);
-    }
-    const amt40 = carrier40 - base40;
-    const amt20 = carrier20 - base20;
-
-    function fareBlock(ftType) {
-        const base = ftType === '20' ? base20 : base40;
-        const q    = ftType === '20' ? carrier20 : carrier40;
-        const amt  = q - base;  // 운수사는 base/q 모두 동일 기준이라 차이로 계산
-        if (hasSurcharge && amt > 0) {
-            const rPct = ftType === '20' ? lastResult.r20 : lastResult.r40;
-            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
-        }
-        return `${ftType}FT │ ${q.toLocaleString()} 원`;
-    }
-
-    function parseItem(row) {
-        const m = row.match(/▪\s*(.+\(\d+%\))\s*:\s*([\d,]+)원\s*\/\s*(\d+%)\s*반영/);
-        return m ? { label: m[1], amt: m[2], applied: m[3] } : null;
-    }
-    function displayLabel(item) {
-        const origPct = item.label.match(/\((\d+%)\)$/);
-        if (origPct && origPct[1] !== item.applied)
-            return item.label.replace(/\(\d+%\)$/, `(${origPct[1]}→${item.applied})`);
-        return item.label;
-    }
-
-    let fareLine;
-    if (!ft) fareLine = fareBlock('20') + '\n\n' + fareBlock('40');
-    else fareLine = fareBlock(ft);
-
-    let text = `[ 운수사 거래 운임 안내 ]
-▶ 출발  ${originName}
-◆ 도착  ${fullAddr}
-
-${fareLine}`;
-
-    if (hasSurcharge && lastResult.listForCopy40) {
-        const items40 = lastResult.listForCopy40.split('\n').filter(Boolean);
-        const items20 = lastResult.listForCopy20.split('\n').filter(Boolean);
-        text += `\n\n[ 할증 내역 ]`;
-        items40.forEach((row40, i) => {
-            const p40 = parseItem(row40);
-            const p20 = parseItem(items20[i] || '');
-            // 소계 줄 (= X원 형태)
-            if (row40.trim().startsWith('=')) {
-                const sub40 = row40.trim().replace(/[^\d,]/g, '');
-                const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
-                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
-                else if (ft === '20') text += `\n  합계  +${sub20}원`;
-                else text += `\n  합계  +${sub40}원`;
-                return;
-            }
-            if (!p40) return;
-            if (!ft) {
-                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
-            } else if (ft === '20') {
-                text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
-            } else {
-                text += `\n- ${displayLabel(p40)} :  +${p40.amt}원`;
-            }
-        });
-        text += `\n`;
-    }
-
-    const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
-    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel} / 운수사간 거래 기준)`;
-
-    if (lastResult.isMultiSurcharge) {
-        text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
-    }
-
-    const btnId = ft ? `copyCarrierBtn${ft}` : 'copyCarrierBtn';
-    const origLabel = ft ? `${ft}FT` : '🚚 운수사 거래용 복사';
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById(btnId);
-        btn.innerText = "✅ 복사 완료!";
-        setTimeout(() => { btn.innerText = origLabel; }, 1500);
-    });
 }
 
 const warehouseDB = [
@@ -34061,6 +33453,25 @@ function toggleRound(target) {
     refreshDistTable();
 }
 
+function toggleInterView() {
+    showInterView = !showInterView;
+    const btn = document.getElementById('btnInterView');
+    const input = document.getElementById('marginDiscount');
+    input.disabled = showInterView;
+
+    // 운수사간 보기 ON: '견적 내용 복사' 버튼이 운수사간 거래 문구를 복사하도록 라벨만 바꿔준다.
+    // (별도의 '운수사 거래용 복사' 버튼은 없앴음 - buildCarrierQuoteText/copyQuoteText 참고)
+    const copyBtn = document.getElementById('copyBtn');
+    if (showInterView) {
+        btn.innerText = "🚚 운수사간 보기 ON"; btn.classList.add('active');
+        if (copyBtn) copyBtn.innerText = '🚚 견적 내용 복사 (운수사간)';
+    } else {
+        btn.innerText = "🚚 운수사간 보기"; btn.classList.remove('active');
+        if (copyBtn) copyBtn.innerText = '📋 견적 내용 복사';
+    }
+    calculateFare();
+}
+
 function calculateFare() {
     if(!currentItem) return;
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
@@ -34069,9 +33480,6 @@ function calculateFare() {
     const p40WeightRate = weight > 23 ? Math.ceil(weight - 23) * 0.1 : 0;
     const p20WeightRate = weight > 20 ? Math.ceil(weight - 20) * 0.1 : 0;
     const oversizeRate = overLen > 0 ? Math.ceil(overLen / 10) * 0.1 : 0;
-    // 복사용을 위해 원본 고시 운수사간 운임 보관
-    currentCarrierBase.b40 = currentItem.p40b;
-    currentCarrierBase.b20 = currentItem.p20b;
     function getFinalRate(wRate) {
         let sc = [];
         document.querySelectorAll('.sc-check:checked').forEach(el => {
@@ -34115,12 +33523,24 @@ function calculateFare() {
         });
         return base + sum;
     }
-    let f40t = fareSum(currentItem.p40t, res40.items);
-    let f40b = fareSum(currentItem.p40b, res40.items);
-    let f40s = fareSum(currentItem.p40s, res40.items);
-    let f20t = fareSum(currentItem.p20t, res20.items);
-    let f20b = fareSum(currentItem.p20b, res20.items);
-    let f20s = fareSum(currentItem.p20s, res20.items);
+    // [수정 사항: 계산 순서] 사사오입 ON이면 원본 고시운임을 먼저 1000원 단위로 반올림한 값을
+    // '기준값'으로 삼고, 그 다음에 할증/쉐어율을 반영한다 (사사오입 → 쉐어율 → 할증 순서).
+    // 복사용을 위해 원본 고시 운수사간 운임도 이 기준값으로 보관.
+    const baseP40t = isRoundFare ? round1000(currentItem.p40t) : currentItem.p40t;
+    const baseP40b = isRoundFare ? round1000(currentItem.p40b) : currentItem.p40b;
+    const baseP40s = isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s;
+    const baseP20t = isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t;
+    const baseP20b = isRoundFare ? round1000(currentItem.p20b) : currentItem.p20b;
+    const baseP20s = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
+    currentCarrierBase.b40 = baseP40b;
+    currentCarrierBase.b20 = baseP20b;
+
+    let f40t = fareSum(baseP40t, res40.items);
+    let f40b = fareSum(baseP40b, res40.items);
+    let f40s = fareSum(baseP40s, res40.items);
+    let f20t = fareSum(baseP20t, res20.items);
+    let f20b = fareSum(baseP20b, res20.items);
+    let f20s = fareSum(baseP20s, res20.items);
 
     if (isRoundFare) {
         f40t = round1000(f40t);
@@ -34135,23 +33555,16 @@ function calculateFare() {
     document.getElementById('p20b').innerText = fmt(f20b);
     document.getElementById('p20s').innerText = fmt(f20s);
 
-    // 2. 할증 적용된 고시운임 기준으로 견적가 산출
-    // fq = 할증 반영 + 사사오입 적용된 최종 고시운임 (화면 표시값과 동일)
-    // 쉐어율 계산을 위해 원본값 사용 (사사오입은 최종 q40/q20에만 적용)
-    const fq40s = currentItem.p40s * (1 + res40.total);
-    const fq40t = currentItem.p40t * (1 + res40.total);
-    const fq20s = currentItem.p20s * (1 + res20.total);
-    const fq20t = currentItem.p20t * (1 + res20.total);
+    // 2. 쉐어율 적용된 견적가 산출 (사사오입 → 쉐어율 → 할증 순서)
+    // 2-1. 할증 0% 기준으로 먼저 쉐어율(마진 할인)을 반영한 '견적가(0%)'를 만들고, 여기서 한 번 사사오입한다.
+    let q40_0 = baseP40s - (baseP40s - baseP40t) * discount;
+    let q20_0 = baseP20s - (baseP20s - baseP20t) * discount;
+    if (isRoundQuote) { q40_0 = round1000(q40_0); q20_0 = round1000(q20_0); }
+    else { q40_0 = Math.round(q40_0); q20_0 = Math.round(q20_0); }
 
-    // 마진 = 청구 - 하불, 쉐어율만큼 할인
-    const margin40 = fq40s - fq40t;
-    const margin20 = fq20s - fq20t;
-
-    // 할증 상세내역 먼저 계산 → q40/q20는 base + detailAmt (규정: 항목별 100원 사사오입 후 합산)
-    // 할증 기준: 원본 고시운임 (쉐어율 적용)
-    // 쉐어율 계산 시 원본 고시운임으로 계산 (사사오입은 최종값에만 적용)
-    const surchargeBase40 = fq40s - (fq40s - fq40t) * discount;
-    const surchargeBase20 = fq20s - (fq20s - fq20t) * discount;
+    // 2-2. 할증은 맨 마지막에, 쉐어율까지 반영되고 사사오입까지 끝난 '견적가(0%)'에 곱해서 반영한다.
+    const q40_unrounded = q40_0 * (1 + res40.total);
+    const q20_unrounded = q20_0 * (1 + res20.total);
 
     // 규정: 할증 합계를 한 번에 100원 사사오입 (항목별 개별 사사오입 아님)
     function calcDetailItems(base, items, roundFn) {
@@ -34174,14 +33587,14 @@ function calculateFare() {
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
     // 상세내역 표시용: 전체 items (중량/활대 포함)
-    // 금액 계산용: 체크박스 할증만 (중량/활대는 fq40s에 이미 포함되어 제외)
+    // 금액 계산용: 체크박스 할증만 (중량/활대는 q40_unrounded에 이미 포함되어 제외)
     const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
-    const detail40 = calcDetailItems(surchargeBase40, scItemsOnly40, roundFn40);
-    const detail20 = calcDetailItems(surchargeBase20, scItemsOnly20, roundFn20);
+    const detail40 = calcDetailItems(q40_unrounded, scItemsOnly40, roundFn40);
+    const detail20 = calcDetailItems(q20_unrounded, scItemsOnly20, roundFn20);
     // 표시용 상세내역은 전체 items로 별도 계산
-    const detailDisplay40 = calcDetailItems(surchargeBase40, res40.items, roundFn40);
-    const detailDisplay20 = calcDetailItems(surchargeBase20, res20.items, roundFn20);
+    const detailDisplay40 = calcDetailItems(q40_unrounded, res40.items, roundFn40);
+    const detailDisplay20 = calcDetailItems(q20_unrounded, res20.items, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
@@ -34203,25 +33616,25 @@ function calculateFare() {
     });
 
     // 규정 방식: 기본운임 + 항목별 사사오입된 할증액 합산
-    // detailAmt는 표시용만 - 운임은 surchargeBase에 이미 할증 포함
-    let q40 = surchargeBase40;
-    let q20 = surchargeBase20;
+    // detailAmt는 표시용만 - 운임은 q40_unrounded에 이미 할증 포함
+    let q40 = q40_unrounded;
+    let q20 = q20_unrounded;
     if (isRoundQuote) { q40 = round1000(q40); q20 = round1000(q20); }
     else { q40 = Math.round(q40); q20 = Math.round(q20); }
 
     lastResult.q40 = q40;
     lastResult.q20 = q20;
-    // base = 할증 전 견적 기준가 (surchargeBase = 쉐어율만 적용, 할증 미포함)
-    lastResult.base40 = isRoundQuote ? round1000(surchargeBase40) : Math.round(surchargeBase40);
-    lastResult.base20 = isRoundQuote ? round1000(surchargeBase20) : Math.round(surchargeBase20);
+    // base = 할증 전 견적 기준가 (쉐어율만 적용, 할증 미포함 - 이미 사사오입까지 끝난 값)
+    lastResult.base40 = q40_0;
+    lastResult.base20 = q20_0;
     lastResult.rawAmt40 = detailAmt40;
     lastResult.rawAmt20 = detailAmt20;
     lastResult.r40 = Math.round(res40.total * 100);
     lastResult.r20 = Math.round(res20.total * 100);
     lastResult.surchargeItems = res40.items || [];
     // 안전운임 = 원본 고시운임(p40s/p20s) 기준 할증 적용값 (쉐어율 적용 전)
-    const safeBase40 = isRoundFare ? round1000(currentItem.p40s) : currentItem.p40s;
-    const safeBase20 = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
+    const safeBase40 = baseP40s;
+    const safeBase20 = baseP20s;
     const safeDetail40 = calcDetailItems(safeBase40, res40.items, roundFn40);
     const safeDetail20 = calcDetailItems(safeBase20, res20.items, roundFn20);
     let safe40 = safeBase40 + safeDetail40.totalAmt;
@@ -34282,12 +33695,12 @@ function calculateFare() {
     }
 
     const sur40 = res40.total, sur20 = res20.total;
-    document.getElementById('tableChg20s').innerHTML = buildFareCell(currentItem.p20s, res20.items, sur20);
-    document.getElementById('tableChg40s').innerHTML = buildFareCell(currentItem.p40s, res40.items, sur40);
-    document.getElementById('tableChg20b').innerHTML = buildFareCell(currentItem.p20b, res20.items, sur20);
-    document.getElementById('tableChg40b').innerHTML = buildFareCell(currentItem.p40b, res40.items, sur40);
-    document.getElementById('tableChg20t').innerHTML = buildFareCell(currentItem.p20t, res20.items, sur20);
-    document.getElementById('tableChg40t').innerHTML = buildFareCell(currentItem.p40t, res40.items, sur40);
+    document.getElementById('tableChg20s').innerHTML = buildFareCell(baseP20s, res20.items, sur20);
+    document.getElementById('tableChg40s').innerHTML = buildFareCell(baseP40s, res40.items, sur40);
+    document.getElementById('tableChg20b').innerHTML = buildFareCell(baseP20b, res20.items, sur20);
+    document.getElementById('tableChg40b').innerHTML = buildFareCell(baseP40b, res40.items, sur40);
+    document.getElementById('tableChg20t').innerHTML = buildFareCell(baseP20t, res20.items, sur20);
+    document.getElementById('tableChg40t').innerHTML = buildFareCell(baseP40t, res40.items, sur40);
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
@@ -34299,15 +33712,52 @@ function calculateFare() {
     let marginRate40 = q40 > 0 ? ((rawMargin40 / q40) * 100).toFixed(1) : "0.0";
     let marginRate20 = q20 > 0 ? ((rawMargin20 / q20) * 100).toFixed(1) : "0.0";
 
-    document.getElementById('q40').innerText = fmt(q40);
-    // [수정 사항 1] 수익 금액 우측에 마진율 추가 표시
-    document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)} (마진율: ${marginRate40}%)`;
-    document.getElementById('q20').innerText = fmt(q20);
-    document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)} (마진율: ${marginRate20}%)`;
+    // 할증 상세내역 표: 운수사간 보기 ON이면 '운수사간' 행만 표시, OFF면 3행 모두 표시
+    const rowFare = document.getElementById('fareChangeRow');
+    const rowBase = document.getElementById('fareChangeRowB');
+    const rowTax = document.getElementById('fareChangeRowT');
+    const detailTitleText = document.getElementById('detailTitleText');
+    if (showInterView) {
+        // 운수사간 보기 ON: 최종청구액 박스에 쉐어율 미적용 운수사간 거래 금액(f40b/f20b) 표시
+        document.getElementById('quoteTitle20').innerText = '20FT 운수사간 거래';
+        document.getElementById('quoteTitle40').innerText = '40FT 운수사간 거래';
+        document.getElementById('q40').innerText = fmt(f40b);
+        document.getElementById('m40').innerText = '쉐어율 미적용 (운수사간 고시운임 기준)';
+        document.getElementById('q20').innerText = fmt(f20b);
+        document.getElementById('m20').innerText = '쉐어율 미적용 (운수사간 고시운임 기준)';
+        if (rowFare) rowFare.style.display = 'none';
+        if (rowTax) rowTax.style.display = 'none';
+        if (rowBase) rowBase.style.display = '';
+        if (detailTitleText) detailTitleText.innerText = '📝 적용 할증 상세내역 (운수사간 기준)';
+    } else {
+        document.getElementById('quoteTitle20').innerText = '20FT 최종청구액';
+        document.getElementById('quoteTitle40').innerText = '40FT 최종청구액';
+        document.getElementById('q40').innerText = fmt(q40);
+        // [수정 사항 1] 수익 금액 우측에 마진율 추가 표시
+        document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)} (마진율: ${marginRate40}%)`;
+        document.getElementById('q20').innerText = fmt(q20);
+        document.getElementById('m20').innerText = `수익: +${fmt(rawMargin20)} (마진율: ${marginRate20}%)`;
+        if (rowFare) rowFare.style.display = '';
+        if (rowTax) rowTax.style.display = '';
+        if (rowBase) rowBase.style.display = '';
+        if (detailTitleText) detailTitleText.innerText = '📝 적용 할증 상세내역 (견적가 기준)';
+    }
 }
 
 function copyQuoteText(ft) {
     if (!currentItem) return;
+    if (showInterView) {
+        // 운수사간 보기 ON: 견적 내용 복사 버튼이 운수사간 거래 문구를 복사
+        const text = buildCarrierQuoteText(ft);
+        const btnId = ft ? `copyBtn${ft}` : 'copyBtn';
+        const origLabel = ft ? `${ft}FT` : '🚚 견적 내용 복사 (운수사간)';
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById(btnId);
+            btn.innerText = "✅ 복사 완료!";
+            setTimeout(() => { btn.innerText = origLabel; }, 1500);
+        });
+        return;
+    }
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const originName = document.getElementById('selectedText').innerText;
@@ -34402,9 +33852,9 @@ ${fareLine}`;
     });
 }
 
-// 운수사간 거래 고시 운임 복사 함수
-function copyCarrierFareText(ft) {
-    if (!currentItem) return;
+// 운수사간 거래 고시 운임 문구 생성 (복사 버튼들이 공용으로 사용)
+function buildCarrierQuoteText(ft) {
+    if (!currentItem) return '';
     const fullAddr = currentItem.g ? `${currentItem.s} ${currentItem.g} ${currentItem.e}` : `${currentItem.s} ${currentItem.e}`;
     const isOneWay = currentType.startsWith('ow') ? '편도' : '왕복';
     const hasSurcharge = lastResult.hasSurcharge;
@@ -34492,13 +33942,7 @@ ${fareLine}`;
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
     }
 
-    const btnId = ft ? `copyCarrierBtn${ft}` : 'copyCarrierBtn';
-    const origLabel = ft ? `${ft}FT` : '🚚 운수사 거래용 복사';
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById(btnId);
-        btn.innerText = "✅ 복사 완료!";
-        setTimeout(() => { btn.innerText = origLabel; }, 1500);
-    });
+    return text;
 }
 
 
@@ -35206,7 +34650,6 @@ function showWhResult(w) {
     document.getElementById('detailTitleWrap')?.style && (document.getElementById('detailTitleWrap').style.display = 'none');
     document.getElementById('detailTableWrap')?.style && (document.getElementById('detailTableWrap').style.display = 'none');
     document.getElementById('btnRoundAll').style.display = 'none';
-    document.getElementById('carrierBtnWrap').style.display = 'none';
 
     // 견적 설정 표시 + calculateFare 호출
     const quoteEl = document.getElementById('quoteSection');
