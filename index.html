@@ -33587,14 +33587,17 @@ function calculateFare() {
     const roundFn20 = v => isRoundDetail ? round1000(v) : Math.round(v / 100) * 100;
 
     // 상세내역 표시용: 전체 items (중량/활대 포함)
-    // 금액 계산용: 체크박스 할증만 (중량/활대는 q40_unrounded에 이미 포함되어 제외)
+    // 금액 계산용: 체크박스 할증만 (중량/활대는 q40_0에 이미 포함되어 제외)
+    // [버그 수정] 할증액은 '할증 전' 기준가(q40_0)에 rate를 곱해야 함.
+    // 이미 할증이 반영된 q40_unrounded를 base로 쓰면 할증이 두 번 곱해져서
+    // 여기서 나오는 금액이 "기본+할증=" 줄의 할증액과 안 맞았음.
     const scItemsOnly40 = res40.items.filter(it => it.name !== '중량' && it.name !== '활대');
     const scItemsOnly20 = res20.items.filter(it => it.name !== '중량' && it.name !== '활대');
-    const detail40 = calcDetailItems(q40_unrounded, scItemsOnly40, roundFn40);
-    const detail20 = calcDetailItems(q20_unrounded, scItemsOnly20, roundFn20);
+    const detail40 = calcDetailItems(q40_0, scItemsOnly40, roundFn40);
+    const detail20 = calcDetailItems(q20_0, scItemsOnly20, roundFn20);
     // 표시용 상세내역은 전체 items로 별도 계산
-    const detailDisplay40 = calcDetailItems(q40_unrounded, res40.items, roundFn40);
-    const detailDisplay20 = calcDetailItems(q20_unrounded, res20.items, roundFn20);
+    const detailDisplay40 = calcDetailItems(q40_0, res40.items, roundFn40);
+    const detailDisplay20 = calcDetailItems(q20_0, res20.items, roundFn20);
     const detailAmt40 = detail40.totalAmt;
     const detailAmt20 = detail20.totalAmt;
 
@@ -34455,7 +34458,7 @@ async function downloadCartExcel() {
                 cell.style = {
                     font: { name: '맑은 고딕', size: 9.5, color: col===2?blue:col===4?teal:isSurch?orangeTxt:{argb:'FF1E293B'}, bold: col===8 },
                     fill: { type: 'pattern', pattern: 'solid', fgColor: isSurch?orange:bg },
-                    alignment: { horizontal: align, wrapText: col===3||col===7, vertical: M, wrapText: col===7 },
+                    alignment: { horizontal: align, wrapText: col===3||col===7, vertical: M },
                     border: ab,
                     numFmt: col===8 ? '#,##0' : undefined
                 };
@@ -34662,8 +34665,6 @@ function showWhResult(w) {
     document.getElementById('whSearchInput').value = w.name;
 }
 
-document.querySelectorAll('.sc-check').forEach(el => el.addEventListener('change', calculateFare));
-
 // ─── 메인 탭 전환 ───────────────────────────────
 function switchMainTab(tabName) {
     document.querySelectorAll('.main-tab').forEach((t, i) => {
@@ -34780,15 +34781,21 @@ function confirmSaveHist() {
             clientName: clientNames[i] || it.clientName || '',
         })),
     };
+    // 원격(구글시트) 저장이 실패하거나 지연되어도 이력이 사라지지 않도록, 우선 이 기기에 임시 저장한다.
+    // (history 탭을 열면 시트 데이터로 갱신되는데, 그때까지는 pending 표시로 남아 화면에 계속 보인다.)
+    record.pending = true;
+    const localHist = getHistoryData();
+    localHist.unshift(record);
+    setHistoryData(localHist);
+
     closeSaveHistModal();
     closeCartModal();
-    fetch(SHEET_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record)
+    sendToGoogleSheet(record).then(() => {
+        alert('✅ 견적 이력이 저장되었습니다.');
+    }).catch(err => {
+        console.log('시트 저장 오류:', err);
+        alert('⚠️ 시트 서버 연결에 실패했습니다. 이력은 이 기기에 임시로 남아있으니, 네트워크 확인 후 다시 저장해주세요.');
     });
-    alert('✅ 견적 이력이 저장되었습니다.');
     setTimeout(() => switchMainTab('history'), 1500);
 }
 
@@ -34796,13 +34803,13 @@ function confirmSaveHist() {
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyLTcS2jcgBh-NrKf_apQLijgteqgtaeB_F5x0AamCln28hjTRexn7IEnQDEmPVJerFng/exec';
 
 function sendToGoogleSheet(record) {
-    if (!SHEET_URL) return;
-    fetch(SHEET_URL, {
+    if (!SHEET_URL) return Promise.reject(new Error('SHEET_URL 미설정'));
+    return fetch(SHEET_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(record)
-    }).catch(err => console.log('시트 저장 오류:', err));
+    });
 }
 
 // ─── 구글 시트에서 이력 불러오기 ───────────────────────────────
@@ -34864,9 +34871,13 @@ function loadHistoryFromSheet() {
                     hasSurcharge: !!(row['할증내용'] && row['할증내용'] !== '-'),
                 });
             });
-            // 구글 시트 데이터만 사용 (최신순)
+            // 구글 시트 데이터를 기준으로 사용 (최신순)
             const sheetHist = keyOrder.reverse().map(k => grouped[k]);
-            setHistoryData(sheetHist);
+            // 방금 저장했지만 아직 시트에 반영되지 않은 pending 항목은 유실되지 않도록 유지
+            const sheetKeys = new Set(sheetHist.map(h => `${String(h.date).substring(0,16)}||${h.manager}||${h.company}`));
+            const pendingLocal = getHistoryData().filter(h => h.pending &&
+                !sheetKeys.has(`${String(h.date).substring(0,16)}||${h.manager}||${h.company}`));
+            setHistoryData([...pendingLocal, ...sheetHist]);
             renderHistoryList();
         })
         .catch(err => { console.log('시트 조회 오류:', err); renderHistoryList(); });
@@ -35048,7 +35059,7 @@ function openAllOriginCmp() {
     function round100(v) { return Math.round(v/100)*100; }
     function calcFare(base, surchRate, weight, overLen, isRound, is40) {
         const wRate = is40 ? (weight>23?Math.ceil(weight-23)*0.1:0) : (weight>20?Math.ceil(weight-20)*0.1:0);
-        const oRate = overLen>0 ? 0.20 : 0;
+        const oRate = overLen>0 ? Math.ceil(overLen/10)*0.1 : 0;
         let fare = base * (1 + wRate + oRate);
         if (surchRate > 0) fare = fare * (1 + surchRate);
         if (isRound) return Math.round(fare / 1000) * 1000;
@@ -35223,7 +35234,7 @@ function calcCarrierFare(base, r) {
     const overLen = parseFloat(document.getElementById('overLength')?.value)||0;
     const is40 = base === r.p40t;
     const wRate = is40?(weight>23?Math.ceil(weight-23)*0.1:0):(weight>20?Math.ceil(weight-20)*0.1:0);
-    const oRate = overLen>0?0.20:0;
+    const oRate = overLen>0?Math.ceil(overLen/10)*0.1:0;
     let fare = base*(1+wRate+oRate);
     if (r.hasSurcharge) fare = fare*(1+calcSurchRateFromText(r.surchText));
     if (r.isRound) fare = Math.round(fare/100)*100;
@@ -35290,6 +35301,7 @@ function renderHistoryList() {
         const fareType = h.fareType || (discount>0?'share':'safe');
         const fareLabel = fareType==='inter'?'운수사간':fareType==='share'?`쉐어 ${Math.round(discount*100)}%`:'안전운임';
         const badges = [
+            h.pending?`<span class="hist-cond-badge" style="background:#fef3c7;color:#92400e;">⏳ 동기화 중</span>`:'',
             eraLabel?`<span class="hist-cond-badge era">${eraLabel}</span>`:'',
             `<span class="hist-cond-badge era" style="background:#e0f2fe;color:#0369a1;">${fareLabel}</span>`,
             surchargeText&&surchargeText!=='-'?`<span class="hist-cond-badge rate">${surchargeText}</span>`:'',
@@ -35434,19 +35446,25 @@ function openPreviewFromHist(idx) {
 function closePreviewModal() { document.getElementById('previewModal').classList.remove('open'); }
 function closePreviewOutside(e) { if (e.target===document.getElementById('previewModal')) closePreviewModal(); }
 
-function downloadPreviewExcel() {
+async function downloadPreviewExcel() {
     if (!_previewRecord) return;
     const orig = [...cartItems]; cartItems.length=0;
     _previewRecord.items.forEach(it => cartItems.push(it));
-    downloadCartExcel();
-    cartItems.length=0; orig.forEach(it => cartItems.push(it));
+    try {
+        await downloadCartExcel();
+    } finally {
+        cartItems.length=0; orig.forEach(it => cartItems.push(it));
+    }
 }
 function downloadPreviewPDF() {
     if (!_previewRecord) return;
     const orig = [...cartItems]; cartItems.length=0;
     _previewRecord.items.forEach(it => cartItems.push(it));
-    downloadCartPDF();
-    cartItems.length=0; orig.forEach(it => cartItems.push(it));
+    try {
+        downloadCartPDF();
+    } finally {
+        cartItems.length=0; orig.forEach(it => cartItems.push(it));
+    }
 }
 
 // ─── 재견적 팝업 ───────────────────────────────
@@ -35502,9 +35520,20 @@ function calcRequote() {
         return amt;
     }
 
+    // 출발거점 표시 텍스트 → DB 키 (originList/dropdown-item과 동일한 기준)
+    const ORIGIN_LABEL_TO_KEY = {
+        '평택항 기점': 'pt', '부산신항 기점': 'bs', '부산북항 기점': 'bb',
+        '인천항 기점': 'icn', '인천신항 터미널': 'icns', '인천국제여객터미널': 'icnt',
+        '광양항 기점': 'gy', '의왕ICD 기지': 'uw',
+        '부산신항 → 의왕 (편도)': 'ow1', '부산북항 → 의왕 (편도)': 'ow2', '광양항 → 의왕 (편도)': 'ow3',
+        '울산신항 기점': 'us', '울산항 기점': 'ua', '포항항 기점': 'ph',
+        '군산항 기점': 'gs', '마산항 기점': 'ms', '대산항 기점': 'ds',
+    };
     const results = _requoteRecord.items.map(it => {
-        const dbKey = it.origin.includes('부산') ? 'bs' : 'pt';
-        const dbArr = dbSel?.[dbKey] || [];
+        const baseKey = ORIGIN_LABEL_TO_KEY[it.origin];
+        // 거리별 운임/창고운임은 DB 매칭 대상이 아니므로 조회불가로 처리
+        const dbKey = baseKey ? (eraNum === 2 ? (baseKey.startsWith('ow') ? `${baseKey}_2` : `${baseKey}2`) : baseKey) : null;
+        const dbArr = dbKey ? (dbSel?.[dbKey] || []) : [];
         const row = dbArr.find(r => `${r.s} ${r.g} ${r.e}` === it.dest);
         if (!row) return {...it, newQ20: it.q20, newQ40: it.q40, found: false};
         let base20, base40;
