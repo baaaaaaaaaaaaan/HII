@@ -684,6 +684,13 @@
                 </div>
                 <button type="button" id="btnCombine" class="round-toggle-btn" onclick="toggleCombine()">180% 적용 OFF</button>
             </div>
+            <div class="quote-row" style="justify-content:space-between; align-items:center;">
+                <div style="font-size:0.8rem; color:#7c2d12; display:flex; align-items:center; gap:4px;">
+                    45FT 컨테이너 (40FT×112.5%)
+                    <span title="45FT 컨테이너의 안전위탁운임 및 안전운송운임은 40FT 컨테이너 운임의 112.5%를 적용한다." style="cursor:help; color:#94a3b8; font-size:0.85rem;">ⓘ</span>
+                </div>
+                <button type="button" id="btnFT45" class="round-toggle-btn" onclick="toggleFT45()">112.5% 적용 OFF</button>
+            </div>
             <div class="quote-grid">
                 <div class="quote-card">
                     <div class="quote-card-title" id="quoteTitle20">20FT 최종청구액</div>
@@ -32573,6 +32580,9 @@ let currentCarrierBase = { b20: 0, b40: 0 };
 let showInterView = false;
 // COMBINE 운송(동일화주 180%) 적용 여부 - 20FT 견적가에만 적용
 let isCombineMode = false;
+// 45FT 컨테이너(40FT 운임의 112.5%) 적용 여부 - 40FT 견적가에만 적용
+// (규정: 45FT 컨테이너의 안전위탁운임 및 안전운송운임은 40FT 컨테이너 운임의 112.5%를 적용한다)
+let isFT45Mode = false;
 
 function toggleDropdown() {
     document.getElementById('customSelect').classList.toggle('open');
@@ -33522,6 +33532,20 @@ function toggleCombine() {
     calculateFare();
 }
 
+function toggleFT45() {
+    isFT45Mode = !isFT45Mode;
+    const btn = document.getElementById('btnFT45');
+    const copyBtn40 = document.getElementById('copyBtn40');
+    if (isFT45Mode) {
+        btn.innerText = "112.5% 적용 ON"; btn.classList.add('active');
+        if (copyBtn40) copyBtn40.innerText = '45FT';
+    } else {
+        btn.innerText = "112.5% 적용 OFF"; btn.classList.remove('active');
+        if (copyBtn40) copyBtn40.innerText = '40FT';
+    }
+    calculateFare();
+}
+
 function calculateFare() {
     if(!currentItem) return;
     const weight = parseFloat(document.getElementById('weightVal').value) || 0;
@@ -33582,7 +33606,10 @@ function calculateFare() {
     const baseP20t = isRoundFare ? round1000(currentItem.p20t) : currentItem.p20t;
     const baseP20b = isRoundFare ? round1000(currentItem.p20b) : currentItem.p20b;
     const baseP20s = isRoundFare ? round1000(currentItem.p20s) : currentItem.p20s;
-    currentCarrierBase.b40 = baseP40b;
+    // 45FT 모드에서는 운수사간 텍스트용 40FT 원본 운수사 운임도 112.5%로 스케일해서 보관
+    currentCarrierBase.b40 = isFT45Mode
+        ? (isRoundFare ? round1000(baseP40b * 1.125) : Math.round(baseP40b * 1.125))
+        : baseP40b;
     currentCarrierBase.b20 = baseP20b;
 
     let f40t = fareSum(baseP40t, res40.items);
@@ -33617,6 +33644,13 @@ function calculateFare() {
     // "기본+할증=" 줄과 할증 상세내역이 항상 서로 일치한다 (40FT는 영향 없음).
     if (isCombineMode) {
         q20_0 = isRoundQuote ? round1000(q20_0 * 1.8) : Math.round(q20_0 * 1.8);
+    }
+
+    // 45FT 컨테이너(40FT 112.5%): 40FT 견적가(0% 할증 기준)에 1.125배를 적용한다.
+    // COMBINE과 동일한 방식으로, 여기서 한 번만 곱하면 할증/상세내역이 그대로 이어받아
+    // 일치하게 계산된다 (20FT는 영향 없음).
+    if (isFT45Mode) {
+        q40_0 = isRoundQuote ? round1000(q40_0 * 1.125) : Math.round(q40_0 * 1.125);
     }
 
     // 2-2. 할증은 맨 마지막에, 쉐어율까지 반영되고 사사오입까지 끝난 '견적가(0%)'에 곱해서 반영한다.
@@ -33693,7 +33727,10 @@ function calculateFare() {
     lastResult.r20 = Math.round(res20.total * 100);
     lastResult.surchargeItems = res40.items || [];
     // 안전운임 = 원본 고시운임(p40s/p20s) 기준 할증 적용값 (쉐어율 적용 전)
-    const safeBase40 = baseP40s;
+    // 45FT 모드에서는 안전운임 기준값도 40FT×112.5%로 스케일한다.
+    const safeBase40 = isFT45Mode
+        ? (isRoundQuote ? round1000(baseP40s * 1.125) : Math.round(baseP40s * 1.125))
+        : baseP40s;
     const safeBase20 = baseP20s;
     const safeDetail40 = calcDetailItems(safeBase40, res40.items, roundFn40);
     const safeDetail20 = calcDetailItems(safeBase20, res20.items, roundFn20);
@@ -33764,7 +33801,12 @@ function calculateFare() {
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
-    const base40t = isRoundFare ? f40t : Math.round(f40t);
+    // 45FT 모드에서는 마진 계산용 원가 기준값도 40FT×112.5%로 스케일해서,
+    // 마진율이 112.5% 인상분만큼 왜곡되어 부풀려지지 않도록 한다.
+    const base40tRaw = isRoundFare ? f40t : Math.round(f40t);
+    const base40t = isFT45Mode
+        ? (isRoundQuote ? round1000(base40tRaw * 1.125) : Math.round(base40tRaw * 1.125))
+        : base40tRaw;
     const base20t = isRoundFare ? f20t : Math.round(f20t);
     let rawMargin40 = isRoundQuote ? round1000(q40 - base40t) : Math.round(q40 - base40t);
     let rawMargin20 = isRoundQuote ? round1000(q20 - base20t) : Math.round(q20 - base20t);
@@ -33782,9 +33824,13 @@ function calculateFare() {
     const detailTitleText = document.getElementById('detailTitleText');
     if (showInterView) {
         // 운수사간 보기 ON: 최종청구액 박스에 쉐어율 미적용 운수사간 거래 금액(f40b/f20b) 표시
+        // 45FT 모드면 40FT 운수사간 금액도 112.5%로 스케일해서 표시한다.
+        const f40bDisplay = isFT45Mode
+            ? (isRoundFare ? round1000(f40b * 1.125) : Math.round(f40b * 1.125))
+            : f40b;
         document.getElementById('quoteTitle20').innerText = '20FT 운수사간 거래';
-        document.getElementById('quoteTitle40').innerText = '40FT 운수사간 거래';
-        document.getElementById('q40').innerText = fmt(f40b);
+        document.getElementById('quoteTitle40').innerText = isFT45Mode ? '45FT 운수사간 거래 (40FT×112.5%)' : '40FT 운수사간 거래';
+        document.getElementById('q40').innerText = fmt(f40bDisplay);
         document.getElementById('m40').innerText = '쉐어율 미적용 (운수사간 고시운임 기준)';
         document.getElementById('q20').innerText = fmt(f20b);
         document.getElementById('m20').innerText = '쉐어율 미적용 (운수사간 고시운임 기준)';
@@ -33794,7 +33840,7 @@ function calculateFare() {
         if (detailTitleText) detailTitleText.innerText = '📝 적용 할증 상세내역 (운수사간 기준)';
     } else {
         document.getElementById('quoteTitle20').innerText = isCombineMode ? '20FT 최종청구액 (COMBINE 180%)' : '20FT 최종청구액';
-        document.getElementById('quoteTitle40').innerText = '40FT 최종청구액';
+        document.getElementById('quoteTitle40').innerText = isFT45Mode ? '45FT 최종청구액 (40FT×112.5%)' : '40FT 최종청구액';
         document.getElementById('q40').innerText = fmt(q40);
         // [수정 사항 1] 수익 금액 우측에 마진율 추가 표시
         document.getElementById('m40').innerText = `수익: +${fmt(rawMargin40)} (마진율: ${marginRate40}%)`;
@@ -33826,8 +33872,11 @@ function copyQuoteText(ft) {
     const originName = document.getElementById('selectedText').innerText;
     const hasSurcharge = lastResult.hasSurcharge;
     const discount = (parseFloat(document.getElementById('marginDiscount').value) || 0) / 100;
+    // 45FT 모드 ON이면 40FT 라벨을 45FT로 표시 (실제 금액은 이미 calculateFare에서 112.5% 반영됨)
+    const label40 = isFT45Mode ? '45' : '40';
 
     function fareBlock(ftType) {
+        const printedType = ftType === '40' ? label40 : ftType;
         const base = ftType === '20' ? lastResult.base20 : lastResult.base40;
         const q    = ftType === '20' ? lastResult.q20 : lastResult.q40;
         const amt  = q - base;
@@ -33837,15 +33886,15 @@ function copyQuoteText(ft) {
             if (hasSurcharge && amt > 0) {
                 const safeAmt = safe - (safe - amt > 0 ? safe - amt : 0);
                 const safeBase2 = safe - amt;
-                return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct2}%) = 청구운임 ${q.toLocaleString()}원\n${ftType}FT │ 안전운임 ${safe.toLocaleString()}원`;
+                return `${printedType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct2}%) = 청구운임 ${q.toLocaleString()}원\n${printedType}FT │ 안전운임 ${safe.toLocaleString()}원`;
             }
-            return `${ftType}FT │ 청구운임 ${q.toLocaleString()}원\n${ftType}FT │ 안전운임 ${safe.toLocaleString()}원`;
+            return `${printedType}FT │ 청구운임 ${q.toLocaleString()}원\n${printedType}FT │ 안전운임 ${safe.toLocaleString()}원`;
         }
         if (hasSurcharge && amt > 0) {
             const rPct = ftType === '20' ? lastResult.r20 : lastResult.r40;
-            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
+            return `${printedType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
         }
-        return `${ftType}FT │ ${q.toLocaleString()} 원`;
+        return `${printedType}FT │ ${q.toLocaleString()} 원`;
     }
 
     function parseItem(row) {
@@ -33882,14 +33931,14 @@ ${fareLine}`;
             if (row40.trim().startsWith('=')) {
                 const sub40 = row40.trim().replace(/[^\d,]/g, '');
                 const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
-                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / ${label40}FT +${sub40}원`;
                 else if (ft === '20') text += `\n  합계  +${sub20}원`;
                 else text += `\n  합계  +${sub40}원`;
                 return;
             }
             if (!p40) return;
             if (!ft) {
-                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / ${label40}FT +${p40.amt}원`;
             } else if (ft === '20') {
                 text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
             } else {
@@ -33901,7 +33950,8 @@ ${fareLine}`;
 
     const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
     const combineLabel = (isCombineMode && ft !== '40') ? ' / COMBINE 운송(동일화주 180%) 적용' : '';
-    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel}${combineLabel})`;
+    const ft45Label = (isFT45Mode && ft !== '20') ? ' / 45FT 컨테이너(40FT×112.5%) 적용' : '';
+    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel}${combineLabel}${ft45Label})`;
 
     if (lastResult.isMultiSurcharge) {
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
@@ -33938,16 +33988,18 @@ function buildCarrierQuoteText(ft) {
     }
     const amt40 = carrier40 - base40;
     const amt20 = carrier20 - base20;
+    const label40carrier = isFT45Mode ? '45' : '40';
 
     function fareBlock(ftType) {
+        const printedType = ftType === '40' ? label40carrier : ftType;
         const base = ftType === '20' ? base20 : base40;
         const q    = ftType === '20' ? carrier20 : carrier40;
         const amt  = q - base;  // 운수사는 base/q 모두 동일 기준이라 차이로 계산
         if (hasSurcharge && amt > 0) {
             const rPct = ftType === '20' ? lastResult.r20 : lastResult.r40;
-            return `${ftType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
+            return `${printedType}FT │ 기본 ${base.toLocaleString()} + 할증 ${amt.toLocaleString()}(${rPct}%) = ${q.toLocaleString()}원`;
         }
-        return `${ftType}FT │ ${q.toLocaleString()} 원`;
+        return `${printedType}FT │ ${q.toLocaleString()} 원`;
     }
 
     function parseItem(row) {
@@ -33982,14 +34034,14 @@ ${fareLine}`;
             if (row40.trim().startsWith('=')) {
                 const sub40 = row40.trim().replace(/[^\d,]/g, '');
                 const sub20 = (items20[i] || '').trim().startsWith('=') ? (items20[i] || '').trim().replace(/[^\d,]/g, '') : '-';
-                if (!ft) text += `\n  합계  20FT +${sub20}원 / 40FT +${sub40}원`;
+                if (!ft) text += `\n  합계  20FT +${sub20}원 / ${label40carrier}FT +${sub40}원`;
                 else if (ft === '20') text += `\n  합계  +${sub20}원`;
                 else text += `\n  합계  +${sub40}원`;
                 return;
             }
             if (!p40) return;
             if (!ft) {
-                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / 40FT +${p40.amt}원`;
+                text += `\n- ${displayLabel(p40)} :  20FT +${p20 ? p20.amt : '-'}원 / ${label40carrier}FT +${p40.amt}원`;
             } else if (ft === '20') {
                 text += `\n- ${displayLabel(p20 || p40)} :  +${p20 ? p20.amt : '-'}원`;
             } else {
@@ -34000,7 +34052,8 @@ ${fareLine}`;
     }
 
     const surchargeLabel = hasSurcharge ? '할증 포함' : '할증 미포함';
-    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel} / 운수사간 거래 기준)`;
+    const ft45CarrierLabel = isFT45Mode ? ' / 45FT 컨테이너(40FT×112.5%) 적용' : '';
+    text += `\n(부가세 별도 / ${isOneWay} 기준 / ${surchargeLabel} / 운수사간 거래 기준${ft45CarrierLabel})`;
 
     if (lastResult.isMultiSurcharge) {
         text += `\n\n※ 안내사항\n• 다수 할증 적용 시 최고 요율 항목(100%)과 나머지 항목(50%)을 합산하며, 상위 3개 항목까지만 제한 적용됩니다.`;
@@ -34084,6 +34137,7 @@ function addToCart() {
         isRoundDetail: isRoundDetail,
         margin20: lastResult.margin20 || 0,  // 수익(마진) - 월별 집계 리포트용
         margin40: lastResult.margin40 || 0,
+        isFT45: isFT45Mode,        // 45FT 컨테이너(40FT×112.5%) 적용 여부 - 카트/이력/엑셀에서 40FT를 45FT로 표시
     };
 
     cartItems.push(item);
@@ -34155,7 +34209,7 @@ function renderCartList() {
                 ${it.discount > 0 ? `<div style="font-size:0.65rem;color:#94a3b8;margin-top:1px;">안전운임 ${it.safe20.toLocaleString()}원</div>` : ''}
             </div>
             <div style="background:#f8fafc; border-radius:6px; padding:7px 10px; text-align:center;">
-                <div style="font-size:0.7rem; color:#64748b;">40FT ${it.discount > 0 ? '청구운임' : '견적가'}</div>
+                <div style="font-size:0.7rem; color:#64748b;">${it.isFT45 ? '45FT' : '40FT'} ${it.discount > 0 ? '청구운임' : '견적가'}</div>
                 <div style="font-size:0.88rem; font-weight:700; color:#1e293b;">${it.q40.toLocaleString()}원</div>
                 ${it.discount > 0 ? `<div style="font-size:0.65rem;color:#94a3b8;margin-top:1px;">안전운임 ${it.safe40.toLocaleString()}원</div>` : ''}
             </div>
@@ -34194,7 +34248,7 @@ function downloadCartPDF() {
                 : `${it.q40.toLocaleString()}원`;
             return `
             <tr><td class="no">${idx*2+1}</td><td class="org">${it.origin}</td><td class="dest">${wa}</td><td class="dest">${it.dest}</td><td class="ctr">${it.dist}km</td><td class="ctr">20FT</td><td class="ctr">${surchShort}</td><td class="amt">${amt20cell}</td></tr>
-            <tr><td class="no">${idx*2+2}</td><td class="org">${it.origin}</td><td class="dest">${wa}</td><td class="dest">${it.dest}</td><td class="ctr">${it.dist}km</td><td class="ctr">40FT</td><td class="ctr">${surchShort}</td><td class="amt">${amt40cell}</td></tr>`;
+            <tr><td class="no">${idx*2+2}</td><td class="org">${it.origin}</td><td class="dest">${wa}</td><td class="dest">${it.dest}</td><td class="ctr">${it.dist}km</td><td class="ctr">${it.isFT45 ? '45FT' : '40FT'}</td><td class="ctr">${surchShort}</td><td class="amt">${amt40cell}</td></tr>`;
         }).join('');
 
         const hasAnySurcharge = cartItems.some(it => it.hasSurcharge);
@@ -34234,7 +34288,7 @@ function downloadCartPDF() {
             if (!d20 && !d40) return ''; // 할증 없는 건 전부 숨김
             return `
             ${d20 ? `<div class="dt-item"><div><span class="dt-no">${idx*2+1}</span><span class="dt-dest">${it.dest}</span><span class="dt-ft">20FT</span></div>${d20}</div>` : ''}
-            ${d40 ? `<div class="dt-item"><div><span class="dt-no">${idx*2+2}</span><span class="dt-dest">${it.dest}</span><span class="dt-ft">40FT</span></div>${d40}</div>` : ''}`;
+            ${d40 ? `<div class="dt-item"><div><span class="dt-no">${idx*2+2}</span><span class="dt-dest">${it.dest}</span><span class="dt-ft">${it.isFT45 ? '45FT' : '40FT'}</span></div>${d40}</div>` : ''}`;
         }).join('');
 
         return `
@@ -34460,7 +34514,7 @@ async function downloadCartExcel() {
     let rowIdx = 5, no = 1;
     cartItems.forEach(it => {
         const surch = it.hasSurcharge && it.surchargeText ? it.surchargeText : '-';
-        [['20FT', it.q20, it.safe20], ['40FT', it.q40, it.safe40]].forEach(([ft, q, safe]) => {
+        [['20FT', it.q20, it.safe20], [it.isFT45 ? '45FT' : '40FT', it.q40, it.safe40]].forEach(([ft, q, safe]) => {
             const bg = (no % 2 === 0) ? lightBg : white;
             const r = ws.getRow(rowIdx);
             // 실작업지 주소 길이에 따라 행 높이 자동 조정
@@ -34507,7 +34561,7 @@ async function downloadCartExcel() {
     // ── 상세 데이터
     no = 1;
     cartItems.forEach(it => {
-        [['20FT', it.base20, it.q20], ['40FT', it.base40, it.q40]].forEach(([ft, base, q]) => {
+        [['20FT', it.base20, it.q20], [it.isFT45 ? '45FT' : '40FT', it.base40, it.q40]].forEach(([ft, base, q]) => {
             const amt = q - base;
             let detail;
             if (!it.hasSurcharge || amt <= 0) {
@@ -34947,10 +35001,11 @@ function loadHistoryFromSheet() {
                     safe20: Number(row['20FT안전운임']) || 0,
                     safe40: Number(row['40FT안전운임']) || 0,
                     hasSurcharge: !!(row['할증내용'] && row['할증내용'] !== '-'),
-                    // 구글시트 쪽 Apps Script가 '20FT수익'/'40FT수익' 컬럼을 저장/반환하도록
-                    // 확장되면 여기서 자동으로 읽어온다 (없으면 0 - 월별 집계 리포트 참고).
+                    // 구글시트 쪽 Apps Script가 '20FT수익'/'40FT수익'/'45FT적용' 컬럼을 저장/반환하도록
+                    // 확장되면 여기서 자동으로 읽어온다 (없으면 각각 0 / false - 월별 집계 리포트, 45FT 표시용 참고).
                     margin20: Number(row['20FT수익']) || 0,
                     margin40: Number(row['40FT수익']) || 0,
+                    isFT45: row['45FT적용'] === 'O',
                 });
             });
             // 구글 시트 데이터를 기준으로 사용 (최신순)
@@ -35148,6 +35203,10 @@ function openAllOriginCmp() {
         return Math.round(fare);
     }
 
+    // 45FT 컨테이너(40FT×112.5%): 메인 화면 토글 상태를 그대로 이어받아,
+    // 40FT 쪽 고시운임 3종(안전위탁/운수사간/안전운송)을 전부 112.5%로 스케일한다.
+    const ft45x = isFT45Mode ? 1.125 : 1;
+
     const results = [];
     originList.forEach(o => {
         if (!db[o.type]) {
@@ -35163,11 +35222,15 @@ function openAllOriginCmp() {
             return;
         }
 
-        const safe40 = calcFare(match.p40s, 0, weight, overLen, isRound, true);
+        const p40sX = match.p40s * ft45x;
+        const p40tX = match.p40t * ft45x;
+        const p40bX = match.p40b * ft45x;
+
+        const safe40 = calcFare(p40sX, 0, weight, overLen, isRound, true);
         const safe20 = calcFare(match.p20s, 0, weight, overLen, isRound, false);
-        const q40s = calcFare(match.p40s, surchRate, weight, overLen, isRound, true);
+        const q40s = calcFare(p40sX, surchRate, weight, overLen, isRound, true);
         const q20s = calcFare(match.p20s, surchRate, weight, overLen, isRound, false);
-        const margin40 = q40s - calcFare(match.p40t, surchRate, weight, overLen, isRound, true);
+        const margin40 = q40s - calcFare(p40tX, surchRate, weight, overLen, isRound, true);
         const margin20 = q20s - calcFare(match.p20t, surchRate, weight, overLen, isRound, false);
         const _q40raw = discount > 0 ? (q40s - margin40 * discount) : q40s;
         const _q20raw = discount > 0 ? (q20s - margin20 * discount) : q20s;
@@ -35175,10 +35238,10 @@ function openAllOriginCmp() {
         const q20 = isRound ? Math.round(_q20raw / 1000) * 1000 : Math.round(_q20raw);
 
         // 운수사간 운임
-        const carrier40 = calcFare(match.p40b, surchRate, weight, overLen, isRound, true);
+        const carrier40 = calcFare(p40bX, surchRate, weight, overLen, isRound, true);
         const carrier20 = calcFare(match.p20b, surchRate, weight, overLen, isRound, false);
         // 안전위탁(하불)
-        const habulFare40 = calcFare(match.p40t, surchRate, weight, overLen, isRound, true);
+        const habulFare40 = calcFare(p40tX, surchRate, weight, overLen, isRound, true);
         const habulFare20 = calcFare(match.p20t, surchRate, weight, overLen, isRound, false);
 
         results.push({
@@ -35189,10 +35252,11 @@ function openAllOriginCmp() {
             safe20: q20s, safe40: q40s,
             carrier20, carrier40,
             haul20: habulFare20, haul40: habulFare40,
-            p20s: match.p20s, p40s: match.p40s,
-            p20t: match.p20t, p40t: match.p40t,
+            p20s: match.p20s, p40s: p40sX,
+            p20t: match.p20t, p40t: p40tX,
             surchText, discount, isRound,
             hasSurcharge: checkedSurcharges.length > 0,
+            isFT45: isFT45Mode,
         });
     });
 
@@ -35203,6 +35267,7 @@ function openAllOriginCmp() {
     conditions.push(currentEra === 2 ? '26년 8월' : '26년 2월');
     if (checkedSurcharges.length) conditions.push(surchText);
     if (discount > 0) conditions.push(`쉐어율 ${Math.round(discount*100)}%`);
+    if (isFT45Mode) conditions.push('45FT(40FT×112.5%)');
     document.getElementById('allOriginSubTitle').textContent = `${results[0].dest} | ${conditions.join(' / ')}`;
 
     // 테이블 렌더링
@@ -35233,7 +35298,7 @@ function openAllOriginCmp() {
                     <th rowspan="2" style="text-align:left;vertical-align:middle;">거점</th>
                     <th rowspan="2" style="vertical-align:middle;">거리</th>
                     <th colspan="3" style="text-align:center;border-bottom:1px solid #3b5fc0;">20FT</th>
-                    <th colspan="3" style="text-align:center;border-bottom:1px solid #3b5fc0;">40FT</th>
+                    <th colspan="3" style="text-align:center;border-bottom:1px solid #3b5fc0;">${isFT45Mode ? '45FT' : '40FT'}</th>
                 </tr>
                 <tr>
                     <th style="font-size:0.78rem;">안전위탁</th>
@@ -35286,6 +35351,7 @@ function allOriginAddToCart() {
             workAddr: window._currentWorkAddr || '',
             margin20: r.q20 - (r.haul20 || 0),  // 수익(마진) - 월별 집계 리포트용
             margin40: r.q40 - (r.haul40 || 0),
+            isFT45: r.isFT45,
         });
     });
     updateCartBadge();
@@ -35297,7 +35363,7 @@ function allOriginCopyQuote() {
     const checked = getCheckedOrigins();
     if (!checked.length) { alert('거점을 선택해주세요.'); return; }
     const lines = checked.map(r =>
-        `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${r.q20.toLocaleString()}원 / 40FT: ${r.q40.toLocaleString()}원`
+        `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${r.q20.toLocaleString()}원 / ${r.isFT45 ? '45FT' : '40FT'}: ${r.q40.toLocaleString()}원`
     ).join('\n\n');
     navigator.clipboard.writeText(lines).then(() => alert('✅ 복사되었습니다.'));
 }
@@ -35308,7 +35374,7 @@ function allOriginCopyCarrier() {
     const lines = checked.map(r => {
         const t40 = calcCarrierFare(r.p40t, r);
         const t20 = calcCarrierFare(r.p20t, r);
-        return `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${t20.toLocaleString()}원 / 40FT: ${t40.toLocaleString()}원`;
+        return `[${r.label}] ${r.dest} (${r.dist}km)\n20FT: ${t20.toLocaleString()}원 / ${r.isFT45 ? '45FT' : '40FT'}: ${t40.toLocaleString()}원`;
     }).join('\n\n');
     navigator.clipboard.writeText(lines).then(() => alert('✅ 운수사간 복사되었습니다.'));
 }
@@ -35543,9 +35609,12 @@ function renderHistoryList() {
         const totalQ20 = h.items.reduce((s,it)=>s+(it.q20||0),0);
         const totalSafe40 = h.items.reduce((s,it)=>s+(it.safe40||0),0);
         const totalSafe20 = h.items.reduce((s,it)=>s+(it.safe20||0),0);
+        // 건별로 45FT 적용 여부가 다를 수 있으므로: 전부 45FT면 '45FT', 일부만이면 '40FT/45FT', 없으면 '40FT'
+        const ft45Count = h.items.filter(it=>it.isFT45).length;
+        const label40hist = ft45Count===0 ? '40FT' : (ft45Count===h.items.length ? '45FT' : '40FT/45FT');
         const amtCell = discount>0
-            ? `<div style="white-space:nowrap;"><span style="font-size:0.75rem;color:#64748b;">20FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ20.toLocaleString()}원</span><span style="font-size:0.7rem;color:#94a3b8;"> (안전 ${totalSafe20.toLocaleString()})</span></div><div style="white-space:nowrap;margin-top:2px;"><span style="font-size:0.75rem;color:#64748b;">40FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ40.toLocaleString()}원</span><span style="font-size:0.7rem;color:#94a3b8;"> (안전 ${totalSafe40.toLocaleString()})</span></div>`
-            : `<div style="white-space:nowrap;"><span style="font-size:0.75rem;color:#64748b;">20FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ20.toLocaleString()}원</span></div><div style="white-space:nowrap;margin-top:2px;"><span style="font-size:0.75rem;color:#64748b;">40FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ40.toLocaleString()}원</span></div>`;
+            ? `<div style="white-space:nowrap;"><span style="font-size:0.75rem;color:#64748b;">20FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ20.toLocaleString()}원</span><span style="font-size:0.7rem;color:#94a3b8;"> (안전 ${totalSafe20.toLocaleString()})</span></div><div style="white-space:nowrap;margin-top:2px;"><span style="font-size:0.75rem;color:#64748b;">${label40hist} </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ40.toLocaleString()}원</span><span style="font-size:0.7rem;color:#94a3b8;"> (안전 ${totalSafe40.toLocaleString()})</span></div>`
+            : `<div style="white-space:nowrap;"><span style="font-size:0.75rem;color:#64748b;">20FT </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ20.toLocaleString()}원</span></div><div style="white-space:nowrap;margin-top:2px;"><span style="font-size:0.75rem;color:#64748b;">${label40hist} </span><span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${totalQ40.toLocaleString()}원</span></div>`;
 
         const rowBg = fidx%2===0 ? 'white' : '#f8fafc';
         const B = '0.5px solid #e2e8f0';
@@ -35639,7 +35708,7 @@ function openPreviewFromHist(idx) {
             <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:0.78rem;">${it.clientName&&it.workAddr?it.clientName+'<br><span style="font-size:0.72rem;color:#64748b;">'+it.workAddr+'</span>':it.clientName||it.workAddr||'-'}</td>
             <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:0.78rem;">${it.dest}</td>
             <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:0.78rem;">${it.dist}km</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:0.78rem;">40FT</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:0.78rem;">${it.isFT45 ? '45FT' : '40FT'}</td>
             <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-size:0.78rem;">${it.surchargeText||'-'}</td>
             <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;font-size:0.78rem;font-weight:700;">${it.q40.toLocaleString()}원</td>
         </tr>`).join('');
@@ -35762,6 +35831,10 @@ function calcRequote() {
         if (mode==='safe') { base20=row.p20s; base40=row.p40s; }
         else if (mode==='inter') { base20=row.p20b; base40=row.p40b; }
         else { base20=r100(row.p20t*shareRate); base40=r100(row.p40t*shareRate); }
+        // 원본 견적이 45FT 컨테이너(40FT×112.5%) 적용 건이었다면 재견적도 동일하게 유지
+        if (it.isFT45) {
+            base40 = isRound ? r100(base40 * 1.125) : Math.round(base40 * 1.125);
+        }
         // 새로 선택한 할증 우선, 없으면 원본 할증 유지
         const surchItems = newSurchItems.length > 0 ? newSurchItems : (it.surchargeItems||[]);
         const amt20 = calcSurchAmt(base20, surchItems);
@@ -35777,7 +35850,7 @@ function calcRequote() {
 
     document.getElementById('requoteResultRows').innerHTML = results.map((r,i) => `
         <div class="requote-result-row"><span>${i+1}. ${r.origin}→${r.dest} 20FT</span><span>${r.found?r.newQ20.toLocaleString()+'원':'조회불가'}</span></div>
-        <div class="requote-result-row"><span>${i+1}. ${r.origin}→${r.dest} 40FT</span><span>${r.found?r.newQ40.toLocaleString()+'원':'조회불가'}</span></div>
+        <div class="requote-result-row"><span>${i+1}. ${r.origin}→${r.dest} ${r.isFT45 ? '45FT' : '40FT'}</span><span>${r.found?r.newQ40.toLocaleString()+'원':'조회불가'}</span></div>
     `).join('') + `<div class="requote-result-row" style="margin-top:4px;">
         <span style="font-size:0.75rem;color:#166534;">${eraLabel} | ${modeLabel} | ${roundLabel}</span><span></span>
     </div>`;
