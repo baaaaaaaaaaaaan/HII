@@ -33763,7 +33763,7 @@ function calculateFare() {
     document.getElementById('detailTableWrap').style.display = hasSurch ? '' : 'none';
     const noSurchHtml = '<span style="color:#94a3b8;font-size:0.75rem;">선택된 할증 없음</span>';
 
-    function buildFareCell(base, items, surTotal) {
+    function buildFareCell(base, items, surTotal, roundFlag) {
         if (!hasSurch || items.length === 0) return noSurchHtml;
         const r1k = v => Math.round(v/1000)*1000;
         const fmtN = v => Math.round(v).toLocaleString();
@@ -33783,7 +33783,7 @@ function calculateFare() {
         const roundFn = v => isRoundDetail ? r1k(v) : Math.round(v/100)*100;
         const totalSurch = roundFn(base * totalRate);
         const fareTotal = base + totalSurch;
-        const finalFare = isRoundFare ? r1k(fareTotal) : Math.round(fareTotal);
+        const finalFare = roundFlag ? r1k(fareTotal) : Math.round(fareTotal);
         const rateLabel = Math.round(totalRate * 100);
         const subTotalHtml = items.length > 1
             ? `<div style="font-size:0.73rem;font-weight:600;color:#b45309;margin-top:3px;padding-top:3px;border-top:0.5px dashed #e2e8f0;">= ${fmtN(totalSurch)}원</div>`
@@ -33792,12 +33792,16 @@ function calculateFare() {
     }
 
     const sur40 = res40.total, sur20 = res20.total;
-    document.getElementById('tableChg20s').innerHTML = buildFareCell(baseP20s, res20.items, sur20);
-    document.getElementById('tableChg40s').innerHTML = buildFareCell(baseP40s, res40.items, sur40);
-    document.getElementById('tableChg20b').innerHTML = buildFareCell(baseP20b, res20.items, sur20);
-    document.getElementById('tableChg40b').innerHTML = buildFareCell(baseP40b, res40.items, sur40);
-    document.getElementById('tableChg20t').innerHTML = buildFareCell(baseP20t, res20.items, sur20);
-    document.getElementById('tableChg40t').innerHTML = buildFareCell(baseP40t, res40.items, sur40);
+    // [버그 수정] '견적가(청구)' 행은 안전운임(원본 고시운임) 기준이 아니라,
+    // 쉐어율·COMBINE 180%·45FT 112.5%까지 반영된 실제 견적가 기준값(q20_0/q40_0)으로 표시해야
+    // 최종 견적가 카드와 상세내역 합계가 서로 일치한다. (사사오입도 '견적가 사사오입' 토글을 따른다)
+    document.getElementById('tableChg20s').innerHTML = buildFareCell(q20_0, res20.items, sur20, isRoundQuote);
+    document.getElementById('tableChg40s').innerHTML = buildFareCell(q40_0, res40.items, sur40, isRoundQuote);
+    // '운수사간'/'안전위탁(하불)' 행은 원본 고시운임 기준 그대로 (고시운임 사사오입 토글을 따른다)
+    document.getElementById('tableChg20b').innerHTML = buildFareCell(baseP20b, res20.items, sur20, isRoundFare);
+    document.getElementById('tableChg40b').innerHTML = buildFareCell(baseP40b, res40.items, sur40, isRoundFare);
+    document.getElementById('tableChg20t').innerHTML = buildFareCell(baseP20t, res20.items, sur20, isRoundFare);
+    document.getElementById('tableChg40t').innerHTML = buildFareCell(baseP40t, res40.items, sur40, isRoundFare);
 
     // 5. 수익(마진) 금액 산출 - f40t/f20t는 이미 isRoundFare 처리된 값 사용
     // isRoundFare OFF여도 마진 계산 시엔 소수점 제거해서 정확하게 계산
