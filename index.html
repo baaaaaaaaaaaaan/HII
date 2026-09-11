@@ -32945,17 +32945,30 @@ function matchDatabaseByRegion(region1, region2, region3) {
     const list = getDatabase()[currentType] || [];
     if (!region3) return null;
 
-    // 1) 읍/면/동 + 시/군/구 모두 일치 (가장 정확)
-    let found = list.find(it => it.e === region3 && (!it.g || it.g === region2 || it.s.includes(region2) || region2.includes(it.s)));
+    // [버그 수정] 시/도(region1)가 다른 지역의 동명이인(예: "금곡동"이 인천에는 등록이 없고
+    // 부산/경기 등 다른 시/도에만 있는 경우)으로 잘못 매칭되는 것을 막기 위해,
+    // 2)/3) 순위 매칭도 반드시 시/도가 일치하는 항목 중에서만 찾는다.
+    const sameProvince = (it) => {
+        if (!region1) return true; // 시/도 정보가 없으면 조건 생략
+        const s = it.s || '';
+        return s === region1 || s.includes(region1) || region1.includes(s) || s.slice(0, 2) === region1.slice(0, 2);
+    };
+
+    // 1) 읍/면/동 + 시/도 + 시/군/구 모두 일치 (가장 정확)
+    let found = list.find(it => it.e === region3 && sameProvince(it) &&
+        (!it.g || it.g === region2 || (it.g || '').includes(region2) || region2.includes(it.g || '')));
     if (found) return found;
 
-    // 2) 읍/면/동 명칭 정확히 일치
-    found = list.find(it => it.e === region3);
+    // 2) 읍/면/동 + 시/도 일치 (구/군 표기 차이 대비)
+    found = list.find(it => it.e === region3 && sameProvince(it));
     if (found) return found;
 
-    // 3) 읍/면/동 명칭 일부 포함 관계로 유사 매칭 (예: "1동"/"2동" 등 세부 표기 차이 대비)
-    found = list.find(it => it.e && (it.e.includes(region3) || region3.includes(it.e)));
-    return found || null;
+    // 3) 읍/면/동 명칭 일부 포함 관계로 유사 매칭 + 시/도 일치 (예: "1동"/"2동" 등 세부 표기 차이 대비)
+    found = list.find(it => it.e && sameProvince(it) && (it.e.includes(region3) || region3.includes(it.e)));
+    if (found) return found;
+
+    // 같은 시/도 안에서 끝내 못 찾으면, 엉뚱한 다른 시/도로 잘못 매칭하지 말고 '매칭 실패'로 처리한다.
+    return null;
 }
 
 // ===== 지도 / 로드뷰 / 길찾기 =====
@@ -33428,10 +33441,21 @@ function matchDatabaseByAddress(fullAddress) {
         if (found) return found;
     }
 
-    // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치만 허용
+    // [버그 수정] 2)의 동/읍/면 완전일치는 시/도 구분 없이 DB 전체에서 찾다 보니,
+    // 검색한 지역(예: 인천)에 등록이 없는 동명(예: "금곡동")이 전혀 다른 시/도
+    // (부산·경기 등)의 동일한 동 이름으로 잘못 매칭되는 문제가 있었다.
+    // 주소 앞부분에서 시/도로 보이는 토큰을 뽑아, 같은 시/도인 항목만 허용한다.
+    const provinceToken = tokens.find(t => /(시|도|특별시|광역시|특별자치시|특별자치도)$/.test(t)) || tokens[0] || '';
+    const sameProvince = (it) => {
+        if (!provinceToken) return true;
+        const s = it.s || '';
+        return s.includes(provinceToken) || provinceToken.includes(s) || s.slice(0, 2) === provinceToken.slice(0, 2);
+    };
+
+    // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치 + 같은 시/도인 경우만 허용 (다른 지역 동명이인 오매칭 방지)
     const dongToken = [...tokens].reverse().find(t => /(동|읍|면)$/.test(t));
     if (dongToken) {
-        const found = list.find(it => it.e === dongToken);
+        const found = list.find(it => it.e === dongToken && sameProvince(it));
         if (found) return found;
     }
 
