@@ -335,6 +335,7 @@
             border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.15s; white-space:nowrap; }
         .main-tab.active { color:#1e3a8a; border-bottom-color:#1e3a8a; }
         .main-tab:hover:not(.active) { color:#1e293b; background:#f8fafc; }
+        .main-tab { flex:1; text-align:center; padding-left:12px; padding-right:12px; }
         .main-page { display:none; }
         .main-page.active { display:block; }
 
@@ -482,6 +483,7 @@
     <div class="main-tabs" style="position:relative; z-index:1500;">
         <div class="main-tab active" onclick="switchMainTab('search')">🔍 운임 조회</div>
         <div class="main-tab" onclick="switchMainTab('history')">📋 견적 이력</div>
+        <div class="main-tab" onclick="switchMainTab('cbm')">📦 CBM 계산기</div>
     </div>
 
     <!-- 운임 조회 페이지 -->
@@ -779,6 +781,11 @@
         <div class="hist-empty">저장된 견적 이력이 없습니다.<br>견적 카트에서 이력을 남겨보세요.</div>
     </div>
 </div>
+
+    <!-- CBM 계산기 탭 -->
+    <div id="page-cbm" class="main-page">
+        <iframe id="cbmFrame" src="cbm.html" title="CBM 및 FR 사이즈 계산기" style="display:block; width:100%; min-height:1100px; border:0; overflow:hidden;"></iframe>
+    </div>
 
 </div><!-- /container -->
 
@@ -34841,10 +34848,11 @@ function showWhResult(w) {
 // ─── 메인 탭 전환 ───────────────────────────────
 function switchMainTab(tabName) {
     document.querySelectorAll('.main-tab').forEach((t, i) => {
-        t.classList.toggle('active', (i === 0 && tabName === 'search') || (i === 1 && tabName === 'history'));
+        t.classList.toggle('active', ['search', 'history', 'cbm'][i] === tabName);
     });
     document.getElementById('page-search').classList.toggle('active', tabName === 'search');
     document.getElementById('page-history').classList.toggle('active', tabName === 'history');
+    document.getElementById('page-cbm').classList.toggle('active', tabName === 'cbm');
     // 탭에 따라 container 너비 조정
     const cont = document.querySelector('.container');
     if (tabName === 'history') {
@@ -34858,7 +34866,21 @@ function switchMainTab(tabName) {
         loadHistoryFromSheet();
         renderHistoryList();
     }
+    if (tabName === 'cbm') {
+        const frame = document.getElementById('cbmFrame');
+        if (frame && frame.contentDocument) {
+            frame.style.height = `${Math.max(600, frame.contentDocument.documentElement.scrollHeight + 8)}px`;
+        }
+    }
 }
+
+window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || event.data?.type !== 'cbm-frame-height') return;
+    const frame = document.getElementById('cbmFrame');
+    if (frame && event.source === frame.contentWindow) {
+        frame.style.height = `${Math.max(600, Number(event.data.height) + 8)}px`;
+    }
+});
 
 // ─── 견적 이력 데이터 (localStorage) ───────────────────────────────
 function getHistoryData() {
