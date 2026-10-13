@@ -32680,6 +32680,17 @@ function normalizeRoadAddress(str) {
     return str.replace(/([가-힣A-Za-z0-9]+(?:로|길))\s+(\d+(?:-\d+)?(?:번길|길))/g, '$1$2');
 }
 
+// 주소 뒤에 붙은 상세주소(예: "삼양로 1080 4층", "101동 202호", "지하1층", "B1")는 카카오 주소검색이
+// 해석하지 못해 결과가 0건이 되거나 엉뚱한 장소로 잡히므로, 카카오에 보내기 전에 잘라낸다.
+function stripDetailAddress(str) {
+    if (!str) return str;
+    return str
+        .replace(/(^|\s)\d+동\s*\d+호(?=\s|$)/g, ' ')
+        .replace(/(^|\s)(?:지하|B)?\d+(?:층|호|F)(?=\s|$)/gi, ' ')
+        .replace(/(^|\s)B\d+(?=\s|$)/gi, ' ')
+        .replace(/\s+/g, ' ').trim();
+}
+
 // 입력 텍스트에 "○○시/군 (○○구) ○○읍/면" 형태로 읍/면이 명시돼 있으면 {g, e}로 반환
 // (2026년 화성시 구 신설로 "화성시 만세구 팔탄면"처럼 구가 끼는 경우 포함)
 function extractTypedEupMyeon(text) {
@@ -32758,7 +32769,7 @@ function onSearchInput(val) {
 
     clearTimeout(kakaoDebounceTimer);
     // 카카오 API에도 전화번호가 섞이지 않은 순수 주소만 전달 (엉뚱한 행선지로 잘못 매칭되는 것 방지)
-    const keyword = normalizeRoadAddress(stripPhoneFromAddress(val.trim()));
+    const keyword = normalizeRoadAddress(stripDetailAddress(stripPhoneFromAddress(val.trim())));
     const listEl = document.getElementById('kakaoSuggestList');
 
     if (keyword.length < 2) {
@@ -32804,7 +32815,15 @@ function onSearchInput(val) {
                     _isAddress: true
                 }));
 
-            const merged = [...keywordResults, ...addrConverted].slice(0, 10);
+            let merged = [...keywordResults, ...addrConverted].slice(0, 10);
+
+            // 입력에 읍/면이 명시돼 있는데 카카오 결과에 그 읍/면이 하나도 없으면(엉뚱한 결과뿐이면)
+            // 로컬 DB 매칭 결과를 맨 앞에 붙여 선택할 수 있게 한다.
+            const typedEM = extractTypedEupMyeon(keyword);
+            if (typedEM && merged.length > 0 &&
+                !merged.some(r => `${r.address_name || ''} ${r.road_address_name || ''}`.includes(typedEM.e))) {
+                merged = [...searchLocalDB(keyword), ...merged].slice(0, 10);
+            }
 
             if (merged.length === 0) {
                 // Kakao 결과 없으면 로컬 DB에서 직접 주소 매칭 시도
@@ -33016,6 +33035,15 @@ function searchLocalDB(text) {
     return results;
 }
 
+// 시/도 명칭 비교용 키. 카카오 주소는 "충북/경남"처럼 약칭을 쓰는데 DB는 "충청북도/경상남도"라
+// 앞 두 글자 비교("충청" vs "충북")로는 일치하지 않으므로, 도 이름은 약칭으로 통일해 비교한다.
+function provinceKey(name) {
+    const n = (name || '').replace(/\s/g, '');
+    const m = n.match(/^(충청|전라|경상)(북|남)도$/);
+    if (m) return m[1][0] + m[2];
+    return n.slice(0, 2);
+}
+
 // 행정구역명(시/도, 시/군/구, 읍/면/동)으로 정확하게 DB 매칭
 function matchDatabaseByRegion(region1, region2, region3) {
     const list = getDatabase()[currentType] || [];
@@ -33027,7 +33055,7 @@ function matchDatabaseByRegion(region1, region2, region3) {
     const sameProvince = (it) => {
         if (!region1) return true; // 시/도 정보가 없으면 조건 생략
         const s = it.s || '';
-        return s === region1 || s.includes(region1) || region1.includes(s) || s.slice(0, 2) === region1.slice(0, 2);
+        return s === region1 || s.includes(region1) || region1.includes(s) || provinceKey(s) === provinceKey(region1);
     };
 
     // 1) 읍/면/동 + 시/도 + 시/군/구 모두 일치 (가장 정확)
