@@ -32673,6 +32673,34 @@ function stripPhoneFromAddress(str) {
     return cleaned;
 }
 
+// 도로명주소에서 "주석로 778번길 18"처럼 도로명과 번길 사이에 공백이 있으면 카카오 주소검색이
+// 엉뚱한 주소(예: 주석로 778 → 인접 면)로 해석하므로 "주석로778번길 18" 형태로 붙여준다.
+function normalizeRoadAddress(str) {
+    if (!str) return str;
+    return str.replace(/([가-힣A-Za-z0-9]+(?:로|길))\s+(\d+(?:-\d+)?(?:번길|길))/g, '$1$2');
+}
+
+// 입력 텍스트에 "○○시/군 (○○구) ○○읍/면" 형태로 읍/면이 명시돼 있으면 {g, e}로 반환
+// (2026년 화성시 구 신설로 "화성시 만세구 팔탄면"처럼 구가 끼는 경우 포함)
+function extractTypedEupMyeon(text) {
+    if (!text) return null;
+    const m = text.match(/([가-힣]+(?:시|군))\s*(?:[가-힣]+구\s*)?([가-힣]+(?:읍|면))(?=\s|\d|$)/);
+    return m ? { g: m[1], e: m[2] } : null;
+}
+
+// 카카오 주소 문자열을 {r1:시/도, r2:시/군/구, r3:읍/면} 으로 분해 (읍/면이 아니면 null)
+// "경기 화성시 팔탄면 ..." / "경기 화성시 만세구 팔탄면 ..." 모두 처리
+function parseEupMyeonAddress(addr) {
+    const tokens = (addr || '').split(/\s+/).filter(Boolean);
+    for (let i = 2; i <= 3 && i < tokens.length; i++) {
+        if (/(읍|면)$/.test(tokens[i])) {
+            return { r1: tokens[0], r2: tokens.slice(1, i).join(' '), r3: tokens[i] };
+        }
+        if (!/구$/.test(tokens[i])) break; // 구가 아닌 토큰(도로명 등)이 나오면 중단
+    }
+    return null;
+}
+
 function runSearch(val) {
     val = stripPhoneFromAddress(val.trim());
     if (val.length < 2) {
@@ -32730,7 +32758,7 @@ function onSearchInput(val) {
 
     clearTimeout(kakaoDebounceTimer);
     // 카카오 API에도 전화번호가 섞이지 않은 순수 주소만 전달 (엉뚱한 행선지로 잘못 매칭되는 것 방지)
-    const keyword = stripPhoneFromAddress(val.trim());
+    const keyword = normalizeRoadAddress(stripPhoneFromAddress(val.trim()));
     const listEl = document.getElementById('kakaoSuggestList');
 
     if (keyword.length < 2) {
@@ -32838,6 +32866,8 @@ function selectKakaoSuggestion(idx) {
     if (!item) return;
 
     const input = document.getElementById('mainSearchInput');
+    // 덮어쓰기 전에 사용자가 직접 입력한 검색어 보관 (읍/면 명시 여부 확인용)
+    const typedText = stripPhoneFromAddress((input.value || '').trim());
     // 주소검색 결과이면 도로명주소를 우선 표시
     const displayAddr = item._isAddress
         ? (item.road_address_name || item.place_name)
@@ -32871,14 +32901,31 @@ function selectKakaoSuggestion(idx) {
     // (예: "경기도 화성시 팔탄면 주석로 778번길 18" 처럼 주소에는 팔탄면이 명시돼 있는데,
     //  도로명 주소의 대표 좌표가 인접한 비봉면 경계에 걸리면 coord2RegionCode가 비봉면을 돌려줘
     //  엉뚱한 면으로 매칭되던 문제.) 읍/면은 법정·행정 명칭이 동일하므로 주소 문자열을 신뢰해도 안전하다.
+    // [버그 수정 2] 위 보정이 지번주소(address_name)만 보고 있어, 검색 결과의 지번주소가 비봉면으로
+    // 잡히면 사용자가 "팔탄면"이라고 직접 입력했어도 비봉면이 조회됐다. 우선순위를
+    // ① 사용자가 입력한 시/군+읍/면(선택 항목과 같은 시/군일 때) ② 도로명주소 ③ 지번주소 순으로 바꾼다.
     {
-        const recTokens = fallbackAddress.split(/\s+/).filter(Boolean);
-        const recR1 = recTokens[0] || '', recR2 = recTokens[1] || '', recR3 = recTokens[2] || '';
-        if (/(읍|면)$/.test(recR3)) {
-            const recMatched = matchDatabaseByRegion(recR1, recR2, recR3);
-            if (recMatched) {
-                applyMatchResult(recMatched);
-                return;
+        const addrCandidates = [item.road_address_name, item.address_name].filter(Boolean);
+        const baseTokens = (addrCandidates[0] || '').split(/\s+/).filter(Boolean);
+        const typed = extractTypedEupMyeon(typedText);
+        if (typed && baseTokens.length >= 2) {
+            const sameCity = baseTokens[1] === typed.g || baseTokens[1].includes(typed.g) || typed.g.includes(baseTokens[1]);
+            if (sameCity) {
+                const typedMatched = matchDatabaseByRegion(baseTokens[0], typed.g, typed.e);
+                if (typedMatched && typedMatched.e === typed.e && (!typedMatched.g || typedMatched.g === typed.g)) {
+                    applyMatchResult(typedMatched);
+                    return;
+                }
+            }
+        }
+        for (const addr of addrCandidates) {
+            const rec = parseEupMyeonAddress(addr);
+            if (rec) {
+                const recMatched = matchDatabaseByRegion(rec.r1, rec.r2, rec.r3);
+                if (recMatched) {
+                    applyMatchResult(recMatched);
+                    return;
+                }
             }
         }
     }
