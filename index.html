@@ -33044,6 +33044,15 @@ function provinceKey(name) {
     return n.slice(0, 2);
 }
 
+// 읍/면 명칭의 접미사를 바꾼 이름 반환 ("양지읍" → "양지면", "양지면" → "양지읍"), 읍/면이 아니면 null
+// 면이 읍으로 승격됐는데 운임 DB(고시)는 옛 명칭인 경우 등을 대비한다.
+function swapEupMyeon(name) {
+    if (!name || name.length < 2) return null;
+    if (/읍$/.test(name)) return name.slice(0, -1) + '면';
+    if (/면$/.test(name)) return name.slice(0, -1) + '읍';
+    return null;
+}
+
 // 행정구역명(시/도, 시/군/구, 읍/면/동)으로 정확하게 DB 매칭
 function matchDatabaseByRegion(region1, region2, region3) {
     const list = getDatabase()[currentType] || [];
@@ -33059,9 +33068,17 @@ function matchDatabaseByRegion(region1, region2, region3) {
     };
 
     // 1) 읍/면/동 + 시/도 + 시/군/구 모두 일치 (가장 정확)
-    let found = list.find(it => it.e === region3 && sameProvince(it) &&
-        (!it.g || it.g === region2 || (it.g || '').includes(region2) || region2.includes(it.g || '')));
+    const sameGu = (it) => !it.g || it.g === region2 || (it.g || '').includes(region2) || region2.includes(it.g || '');
+    let found = list.find(it => it.e === region3 && sameProvince(it) && sameGu(it));
     if (found) return found;
+
+    // 1-1) 면→읍 승격 등으로 명칭이 바뀐 경우(예: 카카오 "양지읍" ↔ 운임 DB "양지면"),
+    //      같은 시/도 + 같은 시/군/구 안에서만 읍↔면 표기를 바꿔 매칭한다.
+    const altEupMyeon = swapEupMyeon(region3);
+    if (altEupMyeon && region2) {
+        found = list.find(it => it.e === altEupMyeon && it.g && sameProvince(it) && sameGu(it));
+        if (found) return found;
+    }
 
     // 2) 읍/면/동 + 시/도 일치 (구/군 표기 차이 대비)
     found = list.find(it => it.e === region3 && sameProvince(it));
@@ -33549,11 +33566,13 @@ function matchDatabaseByAddress(fullAddress) {
     // 검색한 지역(예: 인천)에 등록이 없는 동명(예: "금곡동")이 전혀 다른 시/도
     // (부산·경기 등)의 동일한 동 이름으로 잘못 매칭되는 문제가 있었다.
     // 주소 앞부분에서 시/도로 보이는 토큰을 뽑아, 같은 시/도인 항목만 허용한다.
-    const provinceToken = tokens.find(t => /(시|도|특별시|광역시|특별자치시|특별자치도)$/.test(t)) || tokens[0] || '';
+    // 카카오 주소는 "경기 용인시 ..."처럼 시/도가 약칭이라 첫 토큰을 시/도로 본다
+    // (기존처럼 '시'로 끝나는 토큰을 찾으면 "용인시"가 시/도로 잡혀 매칭이 실패했음)
+    const provinceToken = tokens[0] || '';
     const sameProvince = (it) => {
         if (!provinceToken) return true;
         const s = it.s || '';
-        return s.includes(provinceToken) || provinceToken.includes(s) || s.slice(0, 2) === provinceToken.slice(0, 2);
+        return s.includes(provinceToken) || provinceToken.includes(s) || provinceKey(s) === provinceKey(provinceToken);
     };
 
     // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치 + 같은 시/도인 경우만 허용 (다른 지역 동명이인 오매칭 방지)
@@ -33561,6 +33580,13 @@ function matchDatabaseByAddress(fullAddress) {
     if (dongToken) {
         const found = list.find(it => it.e === dongToken && sameProvince(it));
         if (found) return found;
+        // 읍↔면 명칭 변경 대응(예: 양지읍 ↔ 양지면): 같은 시/군/구가 주소에 있을 때만 허용
+        const alt = swapEupMyeon(dongToken);
+        if (alt) {
+            const compact = fullAddress.replace(/\s+/g, '');
+            const altFound = list.find(it => it.e === alt && it.g && sameProvince(it) && compact.includes(it.g.replace(/\s+/g, '')));
+            if (altFound) return altFound;
+        }
     }
 
     return null;
