@@ -34617,6 +34617,9 @@ function buildQuoteModel(items) {
         const all45 = g.items.every(it => it.isFT45), any45 = g.items.some(it => it.isFT45);
         g.h20 = allC ? '20FT(COMBINE)' : '20FT';
         g.h40 = all45 ? '45FT' : '40FT';
+        // 기본운임(할증 없음) 행을 구간 맨 위로, 나머지는 담은 순서 유지
+        const isBase = it => !(it.hasSurcharge && it.surchargeText);
+        g.items = [...g.items.filter(isBase), ...g.items.filter(it => !isBase(it))];
         g.rows = g.items.map(it => {
             const tags = [];
             if (anyC && !allC && it.isCombine) tags.push('20FT COMBINE');
