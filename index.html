@@ -36268,5 +36268,24 @@ function saveRequoteAsNew() {
         </div>
     </div>
 
+<script>
+// 주소를 넘겨받아 바로 검색 (배차판 [조회 페이지] 링크, 2026-11-13): index.html?q=충남 천안시 동남구 성남면 대흥1길 173-130
+// 운임표 검색(읍면동) + 카카오 주소 자동완성을 그대로 돌림. 카카오 지도 스크립트가 늦게 뜨면 한 번 더
+(function () {
+  var q = new URLSearchParams(location.search).get('q');
+  if (!q) return;
+  function go() {
+    var inp = document.getElementById('mainSearchInput');
+    if (!inp || typeof onSearchInput !== 'function') return false;
+    inp.value = q;
+    onSearchInput(q);
+    return true;
+  }
+  window.addEventListener('load', function () {
+    if (!go()) setTimeout(go, 800);
+    else setTimeout(function () { if (typeof kakao !== 'undefined' && document.getElementById('mainSearchInput').value === q) onSearchInput(q); }, 1200);
+  });
+})();
+</script>
 </body>
 </html>
