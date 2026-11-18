@@ -33185,8 +33185,9 @@ function searchLocalDB(text) {
         // 시군구 매칭
         const gMatch = gTokens.length === 0 || gTokens.some(t => rowG.includes(t) || t.includes(rowG));
         // 시도도 텍스트에 있으면 확인
-        const sMatch = !text.match(/[가-힣]+(도|특별시|광역시|특별자치시|특별자치도)/) ||
-            text.includes(rowS.slice(0, 2));
+        const provTok = text.match(/[가-힣]+(도|특별시|광역시|특별자치시|특별자치도)/);
+        const sMatch = !provTok || text.includes(rowS.slice(0, 2)) ||
+            (isUnifiedJeonnamGwangju(provTok[0]) && provinceMatches(rowS, provTok[0]));
 
         if (eMatch && gMatch && sMatch) {
             seen.add(key);
@@ -33203,6 +33204,20 @@ function searchLocalDB(text) {
         }
     }
     return results;
+}
+
+// [버그 수정] 2026.7.1 광주광역시+전라남도가 "전남광주통합특별시"(약칭 광주특별시)로 통합되어 카카오 주소는
+// 새 명칭을 돌려주지만 운임 DB(고시)는 옛 명칭이라 시/도 불일치로 광주·전남 전체가 조회되지 않았다.
+// 통합 명칭은 광주광역시·전라남도 양쪽과 같은 시/도로 보고, 실제 구분은 시/군/구로 한다(구·군 이름 겹치지 않음).
+function isUnifiedJeonnamGwangju(name) {
+    return /^(전남광주|광주특별시)/.test((name || '').replace(/\s/g, ''));
+}
+function provinceMatches(dbS, name) {
+    const s = dbS || '';
+    const n = (name || '').replace(/\s/g, '');
+    if (!n) return true;
+    if (isUnifiedJeonnamGwangju(n)) return /^(광주|전라남도|전남)/.test(s);
+    return s === n || s.includes(n) || n.includes(s) || provinceKey(s) === provinceKey(n);
 }
 
 // 시/도 명칭 비교용 키. 카카오 주소는 "충북/경남"처럼 약칭을 쓰는데 DB는 "충청북도/경상남도"라
@@ -33234,7 +33249,7 @@ function matchDatabaseByRegion(region1, region2, region3) {
     const sameProvince = (it) => {
         if (!region1) return true; // 시/도 정보가 없으면 조건 생략
         const s = it.s || '';
-        return s === region1 || s.includes(region1) || region1.includes(s) || provinceKey(s) === provinceKey(region1);
+        return provinceMatches(s, region1);
     };
 
     // 1) 읍/면/동 + 시/도 + 시/군/구 모두 일치 (가장 정확)
@@ -33800,7 +33815,7 @@ function matchDatabaseByAddress(fullAddress) {
     const sameProvince = (it) => {
         if (!provinceToken) return true;
         const s = it.s || '';
-        return s.includes(provinceToken) || provinceToken.includes(s) || provinceKey(s) === provinceKey(provinceToken);
+        return provinceMatches(s, provinceToken);
     };
 
     // 2) 동/읍/면으로 끝나는 토큰 → 완전 일치 + 같은 시/도인 경우만 허용 (다른 지역 동명이인 오매칭 방지)
