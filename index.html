@@ -32893,6 +32893,18 @@ function getKakaoGeocoder() {
     return kakaoGeocoder;
 }
 
+// 주소 뒤에 상호명이 붙은 검색어(예: "광주광역시 광산구 손재로 436-68 다담식자재마트 물류센터")는
+// 카카오 주소검색·장소검색 모두 0건이 되므로, 건물번호(도로명 "○○로 12-3" / 지번 "○○동 12-3")까지를
+// 주소, 나머지를 상호명으로 나눠 반환한다. 뒤에 상호명이 없으면 null.
+function splitAddressAndPlace(text) {
+    if (!text) return null;
+    const m = text.match(/^(.*?(?:로|길)\s*\d+(?:-\d+)?|.*?[가-힣]+(?:동|리|가)\s*(?:산\s*)?\d+(?:-\d+)?)\s+(\S.*)$/);
+    if (!m) return null;
+    const addr = m[1].trim(), place = m[2].trim();
+    if (!/[가-힣]/.test(place)) return null;
+    return { addr, place };
+}
+
 // 입력 시: 1) 카카오 자동완성 목록 호출  2) 기존 로컬 DB 매칭(운임 계산)도 그대로 수행
 function onSearchInput(val) {
     // [버그 수정] 카카오 선택 후 새로 입력해도 이전 선택의 실작업지가 남던 문제 → 사용자가 직접 입력하면 플래그 해제
@@ -32929,10 +32941,14 @@ function onSearchInput(val) {
         let keywordResults = [];
         let addressResults = [];
         let doneCount = 0;
+        // 주소+상호명이 같이 입력된 경우 주소 부분만 따로 한 번 더 주소검색
+        const split = splitAddressAndPlace(keyword);
+        const needed = (geocoder && split) ? 3 : 2;
+        let splitResults = [];
 
         function mergeAndRender() {
             doneCount++;
-            if (doneCount < 2) return; // 둘 다 끝날 때까지 대기
+            if (doneCount < needed) return; // 모두 끝날 때까지 대기
 
             // 주소검색 결과를 장소 형태로 변환 (중복 제거)
             const keywordAddrs = new Set(keywordResults.map(r => r.address_name));
@@ -32947,7 +32963,19 @@ function onSearchInput(val) {
                     _isAddress: true
                 }));
 
-            let merged = [...keywordResults, ...addrConverted].slice(0, 10);
+            // 주소만 잘라서 찾은 결과는 상호명을 장소명으로 붙여 맨 앞에 둔다 (화주명 자동입력)
+            const seenAddrs = new Set([...keywordResults, ...addrConverted].map(r => r.address_name));
+            const splitConverted = splitResults
+                .filter(r => !seenAddrs.has(r.address_name))
+                .map(r => ({
+                    place_name: split.place,
+                    address_name: r.address_name,
+                    road_address_name: r.road_address ? r.road_address.address_name : '',
+                    x: r.x,
+                    y: r.y
+                }));
+
+            let merged = [...splitConverted, ...keywordResults, ...addrConverted].slice(0, 10);
 
             // 입력에 읍/면이 명시돼 있는데 카카오 결과에 그 읍/면이 하나도 없으면(엉뚱한 결과뿐이면)
             // 로컬 DB 매칭 결과를 맨 앞에 붙여 선택할 수 있게 한다.
@@ -32990,6 +33018,16 @@ function onSearchInput(val) {
             });
         } else {
             mergeAndRender(); // geocoder 없으면 주소검색 스킵
+        }
+
+        // 3) 주소 부분만 잘라서 주소 검색 (상호명이 붙은 경우에만)
+        if (geocoder && split) {
+            geocoder.addressSearch(split.addr, function(data, status) {
+                if (status === kakao.maps.services.Status.OK && data && data.length > 0) {
+                    splitResults = data.slice(0, 3);
+                }
+                mergeAndRender();
+            });
         }
     }, 250);
 }
